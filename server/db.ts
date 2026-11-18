@@ -3,18 +3,34 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const webpush = require('web-push') as typeof import('web-push');
 
-const dataDir = path.resolve(process.cwd(), 'data');
+function resolveAppRoot(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
+
+const dataDir = path.join(resolveAppRoot(), 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
 const dbPath = path.join(dataDir, 'fakturaflow.db');
 export const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+try {
+  db.pragma('journal_mode = WAL');
+} catch {
+  // Fallback to default journal mode on filesystems without mmap/WAL support
+}
 db.pragma('foreign_keys = ON');
 
 db.exec(`

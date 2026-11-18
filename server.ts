@@ -3,9 +3,9 @@ import crypto from 'crypto';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
-import { createServer as createViteServer, build as buildVite } from 'vite';
 import {
   db,
   getSetting,
@@ -61,6 +61,17 @@ import type {
 } from './src/types.ts';
 
 type AuthedRequest = express.Request & { user?: AuthUser; sessionToken?: string };
+
+function resolveAppRoot(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
 
 const SESSION_COOKIE_NAME = 'ff_session';
 const VALID_ROLES: UserRole[] = ['admin', 'manager', 'hrd', 'user'];
@@ -1916,9 +1927,12 @@ async function startServer() {
   );
 
   // --- Vite Dev Middleware / Production Static Serving ---
+  const appRoot = resolveAppRoot();
   if (process.env.NODE_ENV !== 'production') {
     process.env.DISABLE_HMR = 'true';
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
+      root: appRoot,
       server: {
         middlewareMode: true,
         allowedHosts: true,
@@ -1988,11 +2002,22 @@ export class ErrorOverlay {}
     });
     app.use(vite.middlewares);
   } else {
-    const distDir = path.resolve(process.cwd(), 'dist');
+    const distDir = path.join(appRoot, 'dist');
     const distIndex = path.join(distDir, 'index.html');
+    let backgroundBuildError: string | null = null;
+
     if (!fs.existsSync(distIndex)) {
-      console.log('dist/index.html tidak ditemukan. Menjalankan Vite production build otomatis...');
-      await buildVite();
+      console.log('dist/index.html belum tersedia. Menyiapkan Vite production build di latar belakang...');
+      void (async () => {
+        try {
+          const { build: buildVite } = await import('vite');
+          await buildVite({ root: appRoot });
+          console.log('Vite production build selesai.');
+        } catch (err) {
+          backgroundBuildError = err instanceof Error ? err.message : 'Build gagal';
+          console.error('Background Vite build failed:', err);
+        }
+      })();
     }
 
     app.use(
@@ -2018,8 +2043,27 @@ export class ErrorOverlay {}
     );
 
     app.get('*', (req, res) => {
-      if (/\.(js|mjs|css|map|png|jpg|jpeg|webp|svg|ico|woff|woff2|webmanifest|json)$/i.test(req.path)) {
+      if (/\.(js|mjs|ts|tsx|css|map|png|jpg|jpeg|webp|svg|ico|woff|woff2|webmanifest|json)$/i.test(req.path)) {
         res.status(404).type('text/plain').send('Not found');
+        return;
+      }
+      if (!fs.existsSync(distIndex)) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.status(200).type('text/html').send(`<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="refresh" content="3" />
+  <title>Menyiapkan FakturaFlow...</title>
+</head>
+<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#0f172a;">
+  <div style="text-align:center;padding:24px;max-width:420px;">
+    <h1 style="font-size:18px;margin:0 0 8px;">Menyiapkan Aplikasi...</h1>
+    <p style="font-size:14px;color:#475569;margin:0;">${backgroundBuildError ? `Terjadi kendala build: ${backgroundBuildError}` : 'Halaman akan termuat otomatis dalam beberapa detik.'}</p>
+  </div>
+</body>
+</html>`);
         return;
       }
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -2027,7 +2071,7 @@ export class ErrorOverlay {}
     });
   }
 
-  const resolvePort = (): number => {
+  const resolvePort = (): number | string => {
     const args = process.argv.slice(2);
     for (let i = 0; i < args.length; i++) {
       if (args[i] === '--port' && args[i + 1]) {
@@ -2038,7 +2082,11 @@ export class ErrorOverlay {}
         if (Number.isFinite(parsed) && parsed > 0) return parsed;
       }
     }
-    const envPort = Number(process.env.PORT || 0);
+    const rawEnvPort = process.env.PORT;
+    if (rawEnvPort && Number.isNaN(Number(rawEnvPort))) {
+      return rawEnvPort;
+    }
+    const envPort = Number(rawEnvPort || 0);
     const nginxPort = Number(process.env.NGINX_PORT || 0);
     if (envPort > 0 && envPort !== nginxPort) {
       return envPort;
@@ -2052,9 +2100,15 @@ export class ErrorOverlay {}
     console.error(`Failed to start server on port ${PORT}:`, err);
     process.exit(1);
   });
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`FakturaFlow Enterprise server running on http://localhost:${PORT}`);
-  });
+  if (typeof PORT === 'string') {
+    httpServer.listen(PORT, () => {
+      console.log(`FakturaFlow Enterprise server listening on ${PORT}`);
+    });
+  } else {
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`FakturaFlow Enterprise server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer().catch((err) => {
