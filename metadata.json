@@ -1,0 +1,6 @@
+{
+  "name": "FakturaFlow Enterprise",
+  "description": "Aplikasi invoice, akuntansi kantor, dan penggajian perusahaan secara online dengan pengiriman email bulanan otomatis, integrasi Midtrans API, dan pelacakan pembayaran real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
