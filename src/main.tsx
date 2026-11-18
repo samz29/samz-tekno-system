@@ -76,13 +76,31 @@ class AppErrorBoundary extends React.Component<
   }
 }
 
-if ('serviceWorker' in navigator) {
-  registerSW({
-    immediate: true,
-    onRegisteredSW() {
-      // Service Worker active for Web Push notifications
-    },
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    try {
+      const reloadedKey = 'ff_preload_reloaded';
+      if (!window.sessionStorage.getItem(reloadedKey)) {
+        window.sessionStorage.setItem(reloadedKey, '1');
+        window.location.reload();
+      }
+    } catch {
+      window.location.reload();
+    }
   });
+}
+
+if ('serviceWorker' in navigator) {
+  try {
+    registerSW({
+      immediate: true,
+      onRegisteredSW() {
+        // Service Worker active for Web Push notifications
+      },
+    });
+  } catch {
+    // Ignore Service Worker registration failures on restricted contexts
+  }
 }
 
 createRoot(document.getElementById('root')!).render(

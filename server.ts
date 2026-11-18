@@ -1,10 +1,11 @@
 import express from 'express';
 import crypto from 'crypto';
+import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, build as buildVite } from 'vite';
 import {
   db,
   getSetting,
@@ -792,7 +793,6 @@ async function startServer() {
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     next();
   });
@@ -1989,9 +1989,41 @@ export class ErrorOverlay {}
     app.use(vite.middlewares);
   } else {
     const distDir = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distDir));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distDir, 'index.html'));
+    const distIndex = path.join(distDir, 'index.html');
+    if (!fs.existsSync(distIndex)) {
+      console.log('dist/index.html tidak ditemukan. Menjalankan Vite production build otomatis...');
+      await buildVite();
+    }
+
+    app.use(
+      '/assets',
+      express.static(path.join(distDir, 'assets'), {
+        maxAge: '1y',
+        immutable: true,
+      })
+    );
+    app.use('/assets', (_req, res) => {
+      res.status(404).type('text/plain').send('Asset not found');
+    });
+
+    app.use(
+      express.static(distDir, {
+        setHeaders: (res, filePath) => {
+          const base = path.basename(filePath);
+          if (base === 'index.html' || base === 'sw.js' || base === 'manifest.webmanifest') {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+          }
+        },
+      })
+    );
+
+    app.get('*', (req, res) => {
+      if (/\.(js|mjs|css|map|png|jpg|jpeg|webp|svg|ico|woff|woff2|webmanifest|json)$/i.test(req.path)) {
+        res.status(404).type('text/plain').send('Not found');
+        return;
+      }
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.sendFile(distIndex);
     });
   }
 
