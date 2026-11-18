@@ -20,6 +20,7 @@ import {
   Pencil,
   Play,
   Plus,
+  ScrollText,
   Search,
   Settings,
   ShieldCheck,
@@ -36,6 +37,7 @@ import type {
   Client,
   EmailLog,
   Employee,
+  EmployeeContract,
   Invoice,
   InvoiceStatus,
   LeaveEmployeeOption,
@@ -72,6 +74,9 @@ import { ScheduleModal } from './components/ScheduleModal';
 import { ClientModal } from './components/ClientModal';
 import { ProductModal } from './components/ProductModal';
 import { EmployeeModal } from './components/EmployeeModal';
+import { ContractsView } from './components/ContractsView';
+import { ContractModal } from './components/ContractModal';
+import { ContractPreviewDrawer } from './components/ContractPreviewDrawer';
 import { PayrollModal } from './components/PayrollModal';
 import { PayrollDetailDrawer } from './components/PayrollDetailDrawer';
 import { LeaveModal } from './components/LeaveModal';
@@ -173,6 +178,7 @@ export default function App() {
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [contracts, setContracts] = useState<EmployeeContract[]>([]);
   const [payrolls, setPayrolls] = useState<PayrollRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveEmployees, setLeaveEmployees] = useState<LeaveEmployeeOption[]>([]);
@@ -214,6 +220,10 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<EmployeeContract | null>(null);
+  const [contractPreselectedEmpId, setContractPreselectedEmpId] = useState<string | undefined>(undefined);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
   const [selectedPayrollId, setSelectedPayrollId] = useState<string | null>(null);
@@ -242,6 +252,7 @@ export default function App() {
     setCurrentUser(null);
     setUsers([]);
     setSelectedInvoiceId(null);
+    setSelectedContractId(null);
     setSelectedPayrollId(null);
     setSelectedLeaveId(null);
   }, []);
@@ -359,6 +370,7 @@ export default function App() {
         setClients(data.clients);
         setProducts(data.products);
         setEmployees(data.employees);
+        setContracts(data.contracts || []);
         setPayrolls(data.payrolls);
         setLeaveRequests(data.leaveRequests || []);
         setLeaveEmployees(data.leaveEmployees || []);
@@ -482,6 +494,27 @@ export default function App() {
     evtSource.addEventListener('payroll:deleted', (e) => {
       const payload = safeParse<{ id: string }>(e);
       if (payload?.id) setPayrolls((prev) => prev.filter((p) => p.id !== payload.id));
+    });
+
+    evtSource.addEventListener('contract_updated', (e) => {
+      const payload = safeParse<{ contract?: EmployeeContract; employee?: Employee }>(e);
+      if (payload?.contract) {
+        const ctr = payload.contract;
+        setContracts((prev) =>
+          prev.some((c) => c.id === ctr.id)
+            ? prev.map((c) => (c.id === ctr.id ? ctr : c))
+            : [ctr, ...prev]
+        );
+      }
+      if (payload?.employee) {
+        const emp = payload.employee;
+        setEmployees((prev) => prev.map((item) => (item.id === emp.id ? emp : item)));
+      }
+    });
+
+    evtSource.addEventListener('contract_deleted', (e) => {
+      const payload = safeParse<{ id: string }>(e);
+      if (payload?.id) setContracts((prev) => prev.filter((c) => c.id !== payload.id));
     });
 
     evtSource.addEventListener('leave:created', (e) => {
@@ -795,6 +828,57 @@ export default function App() {
     }
     setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
     showToast(`Karyawan ${emp.name} dihapus.`, 'info');
+  };
+
+  const handleSaveContract = async (
+    payload: Partial<EmployeeContract> & { syncEmployeeType?: boolean }
+  ) => {
+    const res = await apiFetch('/api/contracts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      contract?: EmployeeContract;
+      employee?: Employee;
+      message?: string;
+    };
+    if (data.ok && data.contract) {
+      const saved = data.contract;
+      setContracts((prev) =>
+        prev.some((c) => c.id === saved.id)
+          ? prev.map((c) => (c.id === saved.id ? saved : c))
+          : [saved, ...prev]
+      );
+      if (data.employee) {
+        const updatedEmp = data.employee;
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === updatedEmp.id ? updatedEmp : e))
+        );
+      }
+      showToast(
+        `${saved.contractType === 'pkwt' ? 'Surat PKWT' : 'SK Pengangkatan'} ${saved.contractNumber} disimpan.`,
+        'success'
+      );
+    } else {
+      showToast(data.message || 'Gagal menyimpan dokumen kontrak/SK.', 'error');
+      throw new Error(data.message || 'Save contract failed');
+    }
+  };
+
+  const handleDeleteContract = async (ctr: EmployeeContract) => {
+    const res = await apiFetch(`/api/contracts/${ctr.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { message?: string };
+      showToast(err.message || 'Gagal menghapus dokumen kontrak.', 'error');
+      return;
+    }
+    setContracts((prev) => prev.filter((c) => c.id !== ctr.id));
+    if (selectedContractId === ctr.id) {
+      setSelectedContractId(null);
+    }
+    showToast(`Dokumen ${ctr.contractNumber} dihapus.`, 'info');
   };
 
   const handleSavePayroll = async (pay: PayrollRecord) => {
@@ -1221,6 +1305,7 @@ export default function App() {
     clients: 'Daftar Klien',
     accounting: 'Akuntansi & Buku Kas Kantor',
     employees: 'Data Karyawan',
+    contracts: 'Kontrak Kerja (PKWT) & SK Pengangkatan',
     payroll: 'Penggajian & Slip Gaji',
     leaves: 'Cuti Karyawan & Persetujuan HRD',
     emails: 'Log Pengiriman Email',
@@ -1262,6 +1347,7 @@ export default function App() {
       { id: 'clients', label: 'Daftar Klien', icon: Users },
       { id: 'accounting', label: 'Akuntansi Kantor', icon: BookOpen },
       { id: 'employees', label: 'Data Karyawan', icon: UserCheck },
+      { id: 'contracts', label: 'Kontrak & SK', icon: ScrollText },
       { id: 'leaves', label: 'Cuti Karyawan', icon: CalendarDays },
       { id: 'payroll', label: 'Penggajian', icon: Banknote },
       { id: 'emails', label: 'Log Email', icon: Mail },
@@ -2489,6 +2575,19 @@ export default function App() {
                                           Ajukan Cuti
                                         </button>
                                       )}
+                                      {PERMISSIONS.canManageContracts(userRole) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingContract(null);
+                                            setContractPreselectedEmpId(emp.id);
+                                            setContractModalOpen(true);
+                                          }}
+                                          className="rounded border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                                        >
+                                          Buat PKWT/SK
+                                        </button>
+                                      )}
                                       {PERMISSIONS.canManageEmployees(userRole) && (
                                         <>
                                           <button
@@ -2522,6 +2621,27 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* TAB 6A2: SURAT KONTRAK KERJA (PKWT) & SK PENGANGKATAN */}
+              {activeTab === 'contracts' && canAccessTab(userRole, 'contracts') && (
+                <ContractsView
+                  contracts={contracts}
+                  company={settings.company}
+                  canManage={PERMISSIONS.canManageContracts(userRole)}
+                  onOpenCreate={() => {
+                    setEditingContract(null);
+                    setContractPreselectedEmpId(undefined);
+                    setContractModalOpen(true);
+                  }}
+                  onEditContract={(ctr) => {
+                    setEditingContract(ctr);
+                    setContractPreselectedEmpId(undefined);
+                    setContractModalOpen(true);
+                  }}
+                  onSelectContract={(ctr) => setSelectedContractId(ctr.id)}
+                  onDeleteContract={handleDeleteContract}
+                />
               )}
 
               {/* TAB 6B: CUTI KARYAWAN & PERSETUJUAN HRD */}
@@ -3007,6 +3127,31 @@ export default function App() {
         existingCount={employees.length}
         onClose={() => setEmployeeModalOpen(false)}
         onSave={handleSaveEmployee}
+      />
+
+      <ContractModal
+        open={contractModalOpen}
+        initialContract={editingContract}
+        preselectedEmployeeId={contractPreselectedEmpId}
+        employees={employees}
+        existingContracts={contracts}
+        defaultSignerName={currentUser.name}
+        onClose={() => setContractModalOpen(false)}
+        onSave={handleSaveContract}
+      />
+
+      <ContractPreviewDrawer
+        contract={contracts.find((c) => c.id === selectedContractId) || null}
+        company={settings.company}
+        canManage={PERMISSIONS.canManageContracts(userRole)}
+        onClose={() => setSelectedContractId(null)}
+        onEdit={(ctr) => {
+          setSelectedContractId(null);
+          setEditingContract(ctr);
+          setContractPreselectedEmpId(undefined);
+          setContractModalOpen(true);
+        }}
+        onDelete={handleDeleteContract}
       />
 
       <PayrollModal

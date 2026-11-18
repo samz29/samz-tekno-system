@@ -50,7 +50,7 @@ npm install
 npm run build
 npm start
 ```
-(`npm start` menjalankan `NODE_ENV=production tsx server.ts` pada port `3000` atau `PORT` yang dikonfigurasi.)
+(`npm start` menjalankan `NODE_ENV=production node server.js` pada port `3000` atau `PORT` yang dikonfigurasi.)
 
 ### Pemeriksaan TypeScript
 ```bash
@@ -67,6 +67,9 @@ Salin `.env.example` menjadi `.env` jika ingin menyetel konfigurasi awal melalui
 APP_URL="https://domain-anda.co.id"
 INITIAL_ADMIN_PASSWORD="kata-sandi-admin-yang-kuat"
 
+# Disarankan di Hostinger / server dengan folder build per-versi agar database tidak ter-reset saat redeploy
+DATABASE_PATH="/home/user/domains/domain-anda.co.id/fakturaflow-data/fakturaflow.db"
+
 # Opsional: kredensial Midtrans & SMTP (juga dapat diatur dari menu Pengaturan di UI)
 MIDTRANS_MERCHANT_ID=""
 MIDTRANS_CLIENT_KEY=""
@@ -81,9 +84,10 @@ SMTP_PASS=""
 
 ## Checklist Konfigurasi Produksi
 
-1. Masuk sebagai **Admin**, lalu ubah kata sandi default di menu **Hak Akses & User**.
-2. Buka menu **Pengaturan**:
+1. Atur `DATABASE_PATH` ke lokasi permanen di luar folder build/deploy (misalnya di luar `hbuilds/versions/...`) agar data SQLite tidak hilang saat push/redeploy Git.
+2. Masuk sebagai **Admin**, lalu ubah kata sandi default di menu **Hak Akses & User**.
+3. Buka menu **Pengaturan**:
    - **Profil Perusahaan**: Lengkapi nama, alamat, NPWP, logo, dan rekening bank perusahaan.
    - **Midtrans API**: Ubah mode ke **Production (Live)**, isi `Merchant ID`, `Client Key`, dan `Server Key`, lalu tempel **Webhook URL** (`https://<domain>/api/midtrans/webhook`) ke Midtrans Dashboard.
    - **Email SMTP**: Isi host, port, username, dan password SMTP agar pengiriman faktur & slip gaji berjalan langsung.
-3. Lakukan backup berkala pada file database SQLite di `data/fakturaflow.db`.
+4. Lakukan backup berkala pada file database SQLite (`fakturaflow.db`).

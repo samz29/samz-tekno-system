@@ -297,11 +297,46 @@ export interface AccountingEntry {
   updatedAt: string;
 }
 
+export type ContractType = 'pkwt' | 'sk_pengangkatan';
+export type ContractStatus = 'draft' | 'active' | 'expired' | 'terminated';
+
+export interface EmployeeContract {
+  id: string;
+  contractNumber: string;
+  contractType: ContractType;
+  employeeId: string;
+  employeeNip: string;
+  employeeName: string;
+  employeeEmail: string;
+  employeeNik: string;
+  employeeAddress: string;
+  department: string;
+  position: string;
+  workLocation: string;
+  startDate: string;
+  endDate: string | null;
+  durationMonths: number | null;
+  probationMonths: number;
+  baseSalary: number;
+  fixedAllowance: number;
+  workingHours: string;
+  signerName: string;
+  signerTitle: string;
+  signedDate: string;
+  city: string;
+  customClauses: string;
+  status: ContractStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BootstrapPayload {
   currentUser?: AuthUser;
   clients: Client[];
   products: Product[];
   employees: Employee[];
+  contracts?: EmployeeContract[];
   payrolls: PayrollRecord[];
   leaveRequests?: LeaveRequest[];
   leaveEmployees?: LeaveEmployeeOption[];

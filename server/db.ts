@@ -1,37 +1,27 @@
-import Database from 'better-sqlite3';
 import crypto from 'crypto';
-import path from 'path';
-import fs from 'fs';
 import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
+import {
+  db,
+  getDb,
+  dbPath,
+  dataDir,
+  withTransaction,
+  verifyDatabaseConnection,
+  closeDatabase,
+} from '../src/lib/db.ts';
+
+export {
+  db,
+  getDb,
+  dbPath,
+  dataDir,
+  withTransaction,
+  verifyDatabaseConnection,
+  closeDatabase,
+};
 
 const require = createRequire(import.meta.url);
 const webpush = require('web-push') as typeof import('web-push');
-
-function resolveAppRoot(): string {
-  let dir = path.dirname(fileURLToPath(import.meta.url));
-  for (let i = 0; i < 4; i++) {
-    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return process.cwd();
-}
-
-const dataDir = path.join(resolveAppRoot(), 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, 'fakturaflow.db');
-export const db = new Database(dbPath);
-try {
-  db.pragma('journal_mode = WAL');
-} catch {
-  // Fallback to default journal mode on filesystems without mmap/WAL support
-}
-db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS clients (
@@ -278,6 +268,37 @@ db.exec(`
     source_type TEXT NOT NULL DEFAULT 'manual',
     source_id TEXT,
     notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL DEFAULT 'Sistem',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS employee_contracts (
+    id TEXT PRIMARY KEY,
+    contract_number TEXT NOT NULL UNIQUE,
+    contract_type TEXT NOT NULL,
+    employee_id TEXT NOT NULL,
+    employee_nip TEXT NOT NULL,
+    employee_name TEXT NOT NULL,
+    employee_email TEXT NOT NULL DEFAULT '',
+    employee_nik TEXT NOT NULL DEFAULT '',
+    employee_address TEXT NOT NULL DEFAULT '',
+    department TEXT NOT NULL,
+    position TEXT NOT NULL,
+    work_location TEXT NOT NULL DEFAULT 'Kantor Pusat Jakarta',
+    start_date TEXT NOT NULL,
+    end_date TEXT,
+    duration_months INTEGER,
+    probation_months INTEGER NOT NULL DEFAULT 0,
+    base_salary INTEGER NOT NULL DEFAULT 0,
+    fixed_allowance INTEGER NOT NULL DEFAULT 0,
+    working_hours TEXT NOT NULL DEFAULT 'Senin – Jumat, 09.00 – 17.00 WIB',
+    signer_name TEXT NOT NULL DEFAULT '',
+    signer_title TEXT NOT NULL DEFAULT 'Direktur Utama',
+    signed_date TEXT NOT NULL,
+    city TEXT NOT NULL DEFAULT 'Jakarta',
+    custom_clauses TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
     created_by TEXT NOT NULL DEFAULT 'Sistem',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -1452,6 +1473,84 @@ export function ensureInitialData(): void {
 
     for (const acc of seedEntries) {
       insertAcc.run(...acc);
+    }
+  }
+
+  const contractCount = (
+    db.prepare('SELECT COUNT(*) as count FROM employee_contracts').get() as { count: number }
+  ).count;
+  if (shouldSeedSampleData && contractCount === 0) {
+    const insertContract = db.prepare(
+      `INSERT INTO employee_contracts
+       (id, contract_number, contract_type, employee_id, employee_nip, employee_name, employee_email, employee_nik, employee_address, department, position, work_location, start_date, end_date, duration_months, probation_months, base_salary, fixed_allowance, working_hours, signer_name, signer_title, signed_date, city, custom_clauses, status, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+
+    const seedContracts = [
+      [
+        'ctr-001',
+        'SK/HRD/2023/001',
+        'sk_pengangkatan',
+        'emp-001',
+        'EMP-2023-001',
+        'Rizky Pratama',
+        'rizky.pratama@nusantarakarya.co.id',
+        '3174011504920004',
+        'Jl. Kemang Timur No. 42, Jakarta Selatan',
+        'Engineering',
+        'Lead Full-Stack Architect',
+        'Kantor Pusat Jakarta (Hybrid)',
+        '2023-06-01',
+        null,
+        null,
+        0,
+        18500000,
+        3500000,
+        'Senin – Jumat, 09.00 – 17.00 WIB',
+        'Bambang Wibowo',
+        'Direktur Utama',
+        '2023-05-25',
+        'Jakarta',
+        'Karyawan berhak atas fasilitas asuransi kesehatan tambahan serta tunjangan perangkat kerja sesuai kebijakan Divisi Engineering.',
+        'active',
+        'Administrator',
+        now,
+        now,
+      ],
+      [
+        'ctr-002',
+        'PKWT/HRD/2026/001',
+        'pkwt',
+        'emp-003',
+        'EMP-2024-011',
+        'Dimas Kusuma',
+        'dimas.kusuma@nusantarakarya.co.id',
+        '3173052208950002',
+        'Jl. Tebet Barat Dalam VIII No. 14, Jakarta Selatan',
+        'Operasional & SLA',
+        'Cloud Infrastructure Engineer',
+        'Kantor Pusat Jakarta (SCBD)',
+        '2026-01-01',
+        '2026-12-31',
+        12,
+        0,
+        13000000,
+        2000000,
+        'Senin – Jumat, 09.00 – 17.00 WIB (Rotasi On-Call SLA)',
+        'Siti Rahmawati',
+        'Head of HR & People Operations',
+        '2025-12-20',
+        'Jakarta',
+        'Termasuk kesediaan rotasi jadwal pemeliharaan server produksi di luar jam operasional dengan kompensasi lembur sesuai ketentuan perusahaan.',
+        'active',
+        'Siti Rahmawati',
+        now,
+        now,
+      ],
+    ];
+
+    for (const ctr of seedContracts) {
+      insertContract.run(...ctr);
     }
   }
 }

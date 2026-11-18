@@ -2,6 +2,9 @@ import type {
   AccountingEntry,
   AccountingEntryStatus,
   AccountingEntryType,
+  ContractStatus,
+  ContractType,
+  EmployeeContract,
   Invoice,
   InvoiceStatus,
   LeaveRequest,
@@ -394,3 +397,93 @@ export function exportAccountingCsv(entries: AccountingEntry[]): void {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+export const CONTRACT_TYPE_META: Record<
+  ContractType,
+  { label: string; shortLabel: string; documentTitle: string }
+> = {
+  pkwt: {
+    label: 'PKWT (Kontrak Waktu Tertentu)',
+    shortLabel: 'PKWT',
+    documentTitle: 'PERJANJIAN KERJA WAKTU TERTENTU (PKWT)',
+  },
+  sk_pengangkatan: {
+    label: 'SK Pengangkatan Karyawan Tetap',
+    shortLabel: 'SK Pengangkatan',
+    documentTitle: 'SURAT KEPUTUSAN PENGANGKATAN KARYAWAN TETAP',
+  },
+};
+
+export const CONTRACT_STATUS_META: Record<
+  ContractStatus,
+  { label: string; textClass: string }
+> = {
+  draft: { label: 'Draf', textClass: 'text-slate-600' },
+  active: { label: 'Aktif Berlaku', textClass: 'text-emerald-700' },
+  expired: { label: 'Berakhir', textClass: 'text-amber-700' },
+  terminated: { label: 'Dihentikan', textClass: 'text-red-700' },
+};
+
+export function formatLongDateId(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
+
+export function exportContractsCsv(contracts: EmployeeContract[]): void {
+  const headers = [
+    'Nomor Surat',
+    'Jenis Dokumen',
+    'NIP',
+    'Nama Karyawan',
+    'Departemen',
+    'Jabatan',
+    'Lokasi Kerja',
+    'Tanggal Mulai',
+    'Tanggal Berakhir',
+    'Durasi (Bulan)',
+    'Gaji Pokok',
+    'Tunjangan Tetap',
+    'Penandatangan',
+    'Tanggal Tanda Tangan',
+    'Status',
+  ];
+
+  const rows = contracts.map((c) => [
+    c.contractNumber,
+    CONTRACT_TYPE_META[c.contractType]?.shortLabel || c.contractType,
+    c.employeeNip,
+    c.employeeName,
+    c.department,
+    c.position,
+    c.workLocation,
+    c.startDate,
+    c.endDate || 'Tetap (PKWTT)',
+    c.durationMonths ? String(c.durationMonths) : '-',
+    String(c.baseSalary),
+    String(c.fixedAllowance),
+    `${c.signerName} (${c.signerTitle})`,
+    c.signedDate,
+    CONTRACT_STATUS_META[c.status]?.label || c.status,
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    )
+    .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `fakturaflow-kontrak-sk-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+

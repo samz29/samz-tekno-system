@@ -8,6 +8,7 @@ export type AppTab =
   | 'clients'
   | 'accounting'
   | 'employees'
+  | 'contracts'
   | 'payroll'
   | 'leaves'
   | 'emails'
@@ -77,6 +78,7 @@ const TAB_ROLES: Record<AppTab, UserRole[]> = {
   clients: ['admin', 'manager', 'user'],
   accounting: ['admin', 'manager'],
   employees: ['admin', 'manager', 'hrd'],
+  contracts: ['admin', 'manager', 'hrd'],
   payroll: ['admin', 'manager', 'hrd'],
   leaves: ['admin', 'manager', 'hrd', 'user'],
   emails: ['admin', 'manager', 'hrd'],
@@ -102,6 +104,7 @@ export const PERMISSIONS = {
   canManageProductsClients: (role: UserRole) => ['admin', 'manager'].includes(role),
   canManageAccounting: (role: UserRole) => ['admin', 'manager'].includes(role),
   canManageEmployees: (role: UserRole) => ['admin', 'hrd'].includes(role),
+  canManageContracts: (role: UserRole) => ['admin', 'hrd'].includes(role),
   canManagePayroll: (role: UserRole) => ['admin', 'manager', 'hrd'].includes(role),
   canDeletePayroll: (role: UserRole) => ['admin', 'hrd'].includes(role),
   canSubmitLeave: (role: UserRole) => ['admin', 'manager', 'hrd', 'user'].includes(role),

@@ -21,6 +21,7 @@ import type {
   Client,
   Product,
   Employee,
+  EmployeeContract,
   LeaveRequest,
   PayrollRecord,
   PtkpStatus,
@@ -324,6 +325,44 @@ export function mapUserRow(row: Record<string, unknown>): AuthUser {
     department: String(row.department || 'Umum'),
     active: Boolean(row.active),
     lastLoginAt: row.last_login_at ? String(row.last_login_at) : null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+export function mapContractRow(row: Record<string, unknown>): EmployeeContract {
+  return {
+    id: String(row.id),
+    contractNumber: String(row.contract_number),
+    contractType: (String(row.contract_type) === 'sk_pengangkatan'
+      ? 'sk_pengangkatan'
+      : 'pkwt') as EmployeeContract['contractType'],
+    employeeId: String(row.employee_id),
+    employeeNip: String(row.employee_nip),
+    employeeName: String(row.employee_name),
+    employeeEmail: String(row.employee_email || ''),
+    employeeNik: String(row.employee_nik || ''),
+    employeeAddress: String(row.employee_address || ''),
+    department: String(row.department),
+    position: String(row.position),
+    workLocation: String(row.work_location || 'Kantor Pusat'),
+    startDate: String(row.start_date),
+    endDate: row.end_date ? String(row.end_date) : null,
+    durationMonths:
+      row.duration_months !== null && row.duration_months !== undefined
+        ? Number(row.duration_months)
+        : null,
+    probationMonths: Number(row.probation_months || 0),
+    baseSalary: Number(row.base_salary || 0),
+    fixedAllowance: Number(row.fixed_allowance || 0),
+    workingHours: String(row.working_hours || 'Senin – Jumat, 09.00 – 17.00 WIB'),
+    signerName: String(row.signer_name || ''),
+    signerTitle: String(row.signer_title || 'Direktur Utama'),
+    signedDate: String(row.signed_date),
+    city: String(row.city || 'Jakarta'),
+    customClauses: String(row.custom_clauses || ''),
+    status: String(row.status || 'active') as EmployeeContract['status'],
+    createdBy: String(row.created_by || 'Sistem'),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };

@@ -12,6 +12,9 @@ import {
   setSetting,
   hashPassword,
   verifyPassword,
+  verifyDatabaseConnection,
+  closeDatabase,
+  withTransaction,
   type MidtransInternalConfig,
   type SmtpInternalConfig,
   type CompanyInternalConfig,
@@ -25,6 +28,7 @@ import {
   mapClientRow,
   mapProductRow,
   mapEmployeeRow,
+  mapContractRow,
   mapLeaveRow,
   mapAccountingRow,
   mapPayrollRow,
@@ -52,6 +56,7 @@ import type {
   Client,
   Product,
   Employee,
+  EmployeeContract,
   LeaveEmployeeOption,
   LeaveRequest,
   PayrollRecord,
@@ -235,6 +240,14 @@ function getFullBootstrap(reqHost?: string, currentUser?: AuthUser): BootstrapPa
       ).map(mapEmployeeRow)
     : [];
 
+  const contracts = canViewHrPayroll
+    ? (
+        db
+          .prepare('SELECT * FROM employee_contracts ORDER BY signed_date DESC, updated_at DESC')
+          .all() as Array<Record<string, unknown>>
+      ).map(mapContractRow)
+    : [];
+
   const payrolls = canViewHrPayroll
     ? (
         db
@@ -348,6 +361,7 @@ function getFullBootstrap(reqHost?: string, currentUser?: AuthUser): BootstrapPa
     clients,
     products,
     employees,
+    contracts,
     payrolls,
     leaveRequests,
     leaveEmployees,
@@ -814,7 +828,20 @@ async function startServer() {
 
   // --- Health & Authentication ---
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, timestamp: new Date().toISOString() });
+    const dbHealth = verifyDatabaseConnection();
+    if (!dbHealth.ok) {
+      res.status(503).json({
+        ok: false,
+        database: { ok: false, error: dbHealth.error || 'Database unavailable' },
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+    res.json({
+      ok: true,
+      database: { ok: true, journalMode: dbHealth.journalMode },
+      timestamp: new Date().toISOString(),
+    });
   });
 
   app.post('/api/auth/login', (req, res) => {
@@ -1100,6 +1127,211 @@ async function startServer() {
 
   app.delete('/api/employees/:id', requireAuth, requireRole('admin', 'hrd'), (req, res) => {
     db.prepare('DELETE FROM employees WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // --- Employee Contracts (PKWT & SK Pengangkatan) ---
+  app.get('/api/contracts', requireAuth, requireRole('admin', 'manager', 'hrd'), (_req, res) => {
+    const rows = db
+      .prepare('SELECT * FROM employee_contracts ORDER BY signed_date DESC, updated_at DESC')
+      .all() as Array<Record<string, unknown>>;
+    res.json({ ok: true, contracts: rows.map(mapContractRow) });
+  });
+
+  app.post(
+    '/api/contracts',
+    requireAuth,
+    requireRole('admin', 'hrd'),
+    (req: AuthedRequest, res) => {
+      const body = req.body as Partial<EmployeeContract> & { syncEmployeeType?: boolean };
+      const contractType = body.contractType === 'sk_pengangkatan' ? 'sk_pengangkatan' : 'pkwt';
+      const employeeId = String(body.employeeId || '').trim();
+      const contractNumber = String(body.contractNumber || '').trim();
+      const startDate = String(body.startDate || '').trim();
+      const endDate = body.endDate ? String(body.endDate).trim() : null;
+      const signedDate = String(body.signedDate || '').trim() || new Date().toISOString().slice(0, 10);
+
+      if (!employeeId || !contractNumber || !startDate) {
+        res.status(400).json({
+          ok: false,
+          message: 'Karyawan, nomor surat, dan tanggal mulai berlaku wajib diisi.',
+        });
+        return;
+      }
+
+      if (contractType === 'pkwt') {
+        if (!endDate) {
+          res.status(400).json({
+            ok: false,
+            message: 'Tanggal berakhir kontrak wajib diisi untuk dokumen PKWT.',
+          });
+          return;
+        }
+        if (endDate < startDate) {
+          res.status(400).json({
+            ok: false,
+            message: 'Tanggal berakhir kontrak tidak boleh lebih awal dari tanggal mulai.',
+          });
+          return;
+        }
+      }
+
+      const empRow = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId) as
+        | Record<string, unknown>
+        | undefined;
+      if (!empRow) {
+        res.status(404).json({ ok: false, message: 'Data karyawan tidak ditemukan.' });
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const id = String(body.id || `ctr-${crypto.randomUUID().slice(0, 8)}`);
+
+      const duplicate = db
+        .prepare('SELECT id FROM employee_contracts WHERE LOWER(contract_number) = LOWER(?) AND id != ?')
+        .get(contractNumber, id) as { id: string } | undefined;
+      if (duplicate) {
+        res.status(409).json({
+          ok: false,
+          message: `Nomor surat "${contractNumber}" sudah terdaftar. Gunakan nomor surat yang berbeda.`,
+        });
+        return;
+      }
+
+      let durationMonths: number | null =
+        body.durationMonths !== null && body.durationMonths !== undefined
+          ? Math.max(1, Math.round(Number(body.durationMonths)))
+          : null;
+      if (contractType === 'pkwt' && !durationMonths && endDate) {
+        const s = new Date(`${startDate}T00:00:00`);
+        const e = new Date(`${endDate}T00:00:00`);
+        const diff =
+          (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + (e.getDate() >= s.getDate() ? 0 : -1);
+        durationMonths = Math.max(1, diff || 1);
+      }
+      if (contractType === 'sk_pengangkatan') {
+        durationMonths = null;
+      }
+
+      const status: EmployeeContract['status'] =
+        body.status === 'draft' ||
+        body.status === 'active' ||
+        body.status === 'expired' ||
+        body.status === 'terminated'
+          ? body.status
+          : 'active';
+
+      const probationMonths =
+        contractType === 'sk_pengangkatan'
+          ? Math.max(0, Math.min(3, Math.round(Number(body.probationMonths || 0))))
+          : 0;
+
+      const baseSalary = Math.max(0, Math.round(Number(body.baseSalary ?? empRow.base_salary ?? 0)));
+      const fixedAllowance = Math.max(
+        0,
+        Math.round(Number(body.fixedAllowance ?? empRow.fixed_allowance ?? 0))
+      );
+
+      let updatedEmployee: Employee | undefined;
+
+      withTransaction(() => {
+        db.prepare(
+          `INSERT INTO employee_contracts
+           (id, contract_number, contract_type, employee_id, employee_nip, employee_name, employee_email, employee_nik, employee_address, department, position, work_location, start_date, end_date, duration_months, probation_months, base_salary, fixed_allowance, working_hours, signer_name, signer_title, signed_date, city, custom_clauses, status, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             contract_number = excluded.contract_number,
+             contract_type = excluded.contract_type,
+             employee_id = excluded.employee_id,
+             employee_nip = excluded.employee_nip,
+             employee_name = excluded.employee_name,
+             employee_email = excluded.employee_email,
+             employee_nik = excluded.employee_nik,
+             employee_address = excluded.employee_address,
+             department = excluded.department,
+             position = excluded.position,
+             work_location = excluded.work_location,
+             start_date = excluded.start_date,
+             end_date = excluded.end_date,
+             duration_months = excluded.duration_months,
+             probation_months = excluded.probation_months,
+             base_salary = excluded.base_salary,
+             fixed_allowance = excluded.fixed_allowance,
+             working_hours = excluded.working_hours,
+             signer_name = excluded.signer_name,
+             signer_title = excluded.signer_title,
+             signed_date = excluded.signed_date,
+             city = excluded.city,
+             custom_clauses = excluded.custom_clauses,
+             status = excluded.status,
+             updated_at = excluded.updated_at`
+        ).run(
+          id,
+          contractNumber,
+          contractType,
+          employeeId,
+          String(empRow.nip),
+          String(body.employeeName || empRow.name).trim(),
+          String(body.employeeEmail || empRow.email || '').trim(),
+          String(body.employeeNik || '').trim(),
+          String(body.employeeAddress || '').trim(),
+          String(body.department || empRow.department).trim(),
+          String(body.position || empRow.position).trim(),
+          String(body.workLocation || 'Kantor Pusat Jakarta').trim(),
+          startDate,
+          contractType === 'pkwt' ? endDate : null,
+          durationMonths,
+          probationMonths,
+          baseSalary,
+          fixedAllowance,
+          String(body.workingHours || 'Senin – Jumat, 09.00 – 17.00 WIB').trim(),
+          String(body.signerName || req.user?.name || 'Direktur Utama').trim(),
+          String(body.signerTitle || 'Direktur Utama').trim(),
+          signedDate,
+          String(body.city || 'Jakarta').trim(),
+          String(body.customClauses || '').trim(),
+          status,
+          req.user?.name || 'HRD',
+          body.createdAt || now,
+          now
+        );
+
+        if (body.syncEmployeeType && status === 'active') {
+          const nextEmploymentType = contractType === 'sk_pengangkatan' ? 'tetap' : 'kontrak';
+          db.prepare(
+            `UPDATE employees
+             SET employment_type = ?, department = ?, position = ?, base_salary = ?, fixed_allowance = ?, updated_at = ?
+             WHERE id = ?`
+          ).run(
+            nextEmploymentType,
+            String(body.department || empRow.department).trim(),
+            String(body.position || empRow.position).trim(),
+            baseSalary,
+            fixedAllowance,
+            now,
+            employeeId
+          );
+          const refreshedEmp = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId) as
+            | Record<string, unknown>
+            | undefined;
+          if (refreshedEmp) {
+            updatedEmployee = mapEmployeeRow(refreshedEmp);
+          }
+        }
+      });
+
+      const savedRow = db
+        .prepare('SELECT * FROM employee_contracts WHERE id = ?')
+        .get(id) as Record<string, unknown>;
+      const contract = mapContractRow(savedRow);
+      broadcastEvent('contract_updated', { contract, employee: updatedEmployee });
+      res.json({ ok: true, contract, employee: updatedEmployee });
+    }
+  );
+
+  app.delete('/api/contracts/:id', requireAuth, requireRole('admin', 'hrd'), (req, res) => {
+    db.prepare('DELETE FROM employee_contracts WHERE id = ?').run(req.params.id);
+    broadcastEvent('contract_deleted', { id: req.params.id });
     res.json({ ok: true });
   });
 
@@ -2109,6 +2341,24 @@ export class ErrorOverlay {}
       console.log(`FakturaFlow Enterprise server running on http://localhost:${PORT}`);
     });
   }
+
+  let shuttingDown = false;
+  const gracefulShutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Received ${signal}, closing HTTP server and SQLite connection...`);
+    httpServer.close(() => {
+      closeDatabase();
+      process.exit(0);
+    });
+    setTimeout(() => {
+      closeDatabase();
+      process.exit(0);
+    }, 5000).unref();
+  };
+
+  process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
 startServer().catch((err) => {
