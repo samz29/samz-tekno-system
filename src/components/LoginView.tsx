@@ -9,12 +9,14 @@ import {
   FileText,
   Lock,
   LogIn,
+  QrCode,
   ShieldCheck,
   User as UserIcon,
 } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (identifier: string, password: string) => Promise<{ ok: boolean; message?: string }>;
+  onOpenVerify?: () => void;
 }
 
 const PLATFORM_PILLARS = [
@@ -40,7 +42,7 @@ const PLATFORM_PILLARS = [
   },
 ];
 
-export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
+export const LoginView: React.FC<LoginViewProps> = ({ onLogin, onOpenVerify }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -175,9 +177,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               </button>
             </form>
 
-            <div className="mt-6 pt-5 border-t border-slate-200 text-xs text-slate-500 leading-relaxed">
-              Hubungi Administrator perusahaan apabila Anda memerlukan pembuatan akun baru atau
-              pemulihan kata sandi.
+            <div className="mt-6 pt-5 border-t border-slate-200 space-y-3 text-xs text-slate-500 leading-relaxed">
+              <p>
+                Hubungi Administrator perusahaan apabila Anda memerlukan pembuatan akun baru atau
+                pemulihan kata sandi.
+              </p>
+              {onOpenVerify && (
+                <button
+                  type="button"
+                  onClick={onOpenVerify}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-blue-700" />
+                  <span>Verifikasi Keaslian Surat (PKWT / SK)</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

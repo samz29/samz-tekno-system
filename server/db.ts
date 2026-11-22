@@ -299,6 +299,36 @@ db.exec(`
     city TEXT NOT NULL DEFAULT 'Jakarta',
     custom_clauses TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active',
+    verification_code TEXT NOT NULL DEFAULT '',
+    verification_hash TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL DEFAULT 'Sistem',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS goods_handovers (
+    id TEXT PRIMARY KEY,
+    handover_number TEXT NOT NULL UNIQUE,
+    handover_type TEXT NOT NULL DEFAULT 'client_delivery',
+    status TEXT NOT NULL DEFAULT 'handed_over',
+    handover_date TEXT NOT NULL,
+    city TEXT NOT NULL DEFAULT 'Jakarta',
+    location TEXT NOT NULL DEFAULT '',
+    reference_type TEXT NOT NULL DEFAULT 'manual',
+    reference_id TEXT,
+    reference_number TEXT NOT NULL DEFAULT '',
+    sender_name TEXT NOT NULL DEFAULT '',
+    sender_title TEXT NOT NULL DEFAULT '',
+    recipient_name TEXT NOT NULL DEFAULT '',
+    recipient_company TEXT NOT NULL DEFAULT '',
+    recipient_identity TEXT NOT NULL DEFAULT '',
+    recipient_phone TEXT NOT NULL DEFAULT '',
+    recipient_address TEXT NOT NULL DEFAULT '',
+    items_json TEXT NOT NULL DEFAULT '[]',
+    notes TEXT NOT NULL DEFAULT '',
+    received_at TEXT,
+    verification_code TEXT NOT NULL DEFAULT '',
+    verification_hash TEXT NOT NULL DEFAULT '',
     created_by TEXT NOT NULL DEFAULT 'Sistem',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -335,8 +365,106 @@ try {
       db.exec(sql);
     }
   }
+
+  const contractCols = db
+    .prepare('PRAGMA table_info(employee_contracts)')
+    .all() as Array<{ name: string }>;
+  if (!contractCols.some((c) => c.name === 'verification_code')) {
+    db.exec(
+      "ALTER TABLE employee_contracts ADD COLUMN verification_code TEXT NOT NULL DEFAULT ''"
+    );
+  }
+  if (!contractCols.some((c) => c.name === 'verification_hash')) {
+    db.exec(
+      "ALTER TABLE employee_contracts ADD COLUMN verification_hash TEXT NOT NULL DEFAULT ''"
+    );
+  }
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_contracts_verification_code ON employee_contracts(verification_code) WHERE verification_code != ''"
+  );
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_goods_handovers_verification_code ON goods_handovers(verification_code) WHERE verification_code != ''"
+  );
 } catch {
   // ignore if tables freshly created
+}
+
+export function generateContractVerificationCode(
+  contractType: string,
+  signedDate?: string
+): string {
+  const year = (signedDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
+  const typePrefix = contractType === 'sk_pengangkatan' ? 'SK' : 'PKWT';
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `FF-${typePrefix}-${year}-${rand}`;
+}
+
+export function computeContractVerificationHash(input: {
+  verificationCode: string;
+  contractNumber: string;
+  contractType: string;
+  employeeNip: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  startDate: string;
+  endDate: string | null;
+  signedDate: string;
+  signerName: string;
+}): string {
+  const canonical = [
+    input.verificationCode.trim().toUpperCase(),
+    input.contractNumber.trim(),
+    input.contractType.trim(),
+    input.employeeNip.trim(),
+    input.employeeName.trim(),
+    input.department.trim(),
+    input.position.trim(),
+    input.startDate.trim(),
+    input.endDate ? input.endDate.trim() : 'PKWTT',
+    input.signedDate.trim(),
+    input.signerName.trim(),
+  ].join('|');
+  return crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 16).toUpperCase();
+}
+
+export function generateHandoverVerificationCode(handoverDate?: string): string {
+  const year = (handoverDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `FF-BAST-${year}-${rand}`;
+}
+
+export function computeHandoverVerificationHash(input: {
+  verificationCode: string;
+  handoverNumber: string;
+  handoverType: string;
+  handoverDate: string;
+  senderName: string;
+  recipientName: string;
+  items: Array<{
+    name: string;
+    serialNumber?: string;
+    quantity: number;
+    unit: string;
+    condition?: string;
+  }>;
+}): string {
+  const itemsCanonical = input.items
+    .map(
+      (it) =>
+        `${it.name.trim()}:${(it.serialNumber || '').trim()}:${Number(it.quantity || 0)}:${it.unit.trim()}:${(it.condition || '').trim()}`
+    )
+    .join(';');
+  const canonical = [
+    input.verificationCode.trim().toUpperCase(),
+    input.handoverNumber.trim(),
+    input.handoverType.trim(),
+    input.handoverDate.trim(),
+    input.senderName.trim(),
+    input.recipientName.trim(),
+    itemsCanonical,
+  ].join('|');
+  return crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 16).toUpperCase();
 }
 
 export function hashPassword(password: string): string {
@@ -1482,75 +1610,296 @@ export function ensureInitialData(): void {
   if (shouldSeedSampleData && contractCount === 0) {
     const insertContract = db.prepare(
       `INSERT INTO employee_contracts
-       (id, contract_number, contract_type, employee_id, employee_nip, employee_name, employee_email, employee_nik, employee_address, department, position, work_location, start_date, end_date, duration_months, probation_months, base_salary, fixed_allowance, working_hours, signer_name, signer_title, signed_date, city, custom_clauses, status, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, contract_number, contract_type, employee_id, employee_nip, employee_name, employee_email, employee_nik, employee_address, department, position, work_location, start_date, end_date, duration_months, probation_months, base_salary, fixed_allowance, working_hours, signer_name, signer_title, signed_date, city, custom_clauses, status, verification_code, verification_hash, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     const seedContracts = [
-      [
-        'ctr-001',
-        'SK/HRD/2023/001',
-        'sk_pengangkatan',
-        'emp-001',
-        'EMP-2023-001',
-        'Rizky Pratama',
-        'rizky.pratama@nusantarakarya.co.id',
-        '3174011504920004',
-        'Jl. Kemang Timur No. 42, Jakarta Selatan',
-        'Engineering',
-        'Lead Full-Stack Architect',
-        'Kantor Pusat Jakarta (Hybrid)',
-        '2023-06-01',
-        null,
-        null,
-        0,
-        18500000,
-        3500000,
-        'Senin – Jumat, 09.00 – 17.00 WIB',
-        'Bambang Wibowo',
-        'Direktur Utama',
-        '2023-05-25',
-        'Jakarta',
-        'Karyawan berhak atas fasilitas asuransi kesehatan tambahan serta tunjangan perangkat kerja sesuai kebijakan Divisi Engineering.',
-        'active',
-        'Administrator',
-        now,
-        now,
-      ],
-      [
-        'ctr-002',
-        'PKWT/HRD/2026/001',
-        'pkwt',
-        'emp-003',
-        'EMP-2024-011',
-        'Dimas Kusuma',
-        'dimas.kusuma@nusantarakarya.co.id',
-        '3173052208950002',
-        'Jl. Tebet Barat Dalam VIII No. 14, Jakarta Selatan',
-        'Operasional & SLA',
-        'Cloud Infrastructure Engineer',
-        'Kantor Pusat Jakarta (SCBD)',
-        '2026-01-01',
-        '2026-12-31',
-        12,
-        0,
-        13000000,
-        2000000,
-        'Senin – Jumat, 09.00 – 17.00 WIB (Rotasi On-Call SLA)',
-        'Siti Rahmawati',
-        'Head of HR & People Operations',
-        '2025-12-20',
-        'Jakarta',
-        'Termasuk kesediaan rotasi jadwal pemeliharaan server produksi di luar jam operasional dengan kompensasi lembur sesuai ketentuan perusahaan.',
-        'active',
-        'Siti Rahmawati',
-        now,
-        now,
-      ],
+      {
+        id: 'ctr-001',
+        contractNumber: 'SK/HRD/2023/001',
+        contractType: 'sk_pengangkatan',
+        employeeId: 'emp-001',
+        employeeNip: 'EMP-2023-001',
+        employeeName: 'Rizky Pratama',
+        employeeEmail: 'rizky.pratama@nusantarakarya.co.id',
+        employeeNik: '3174011504920004',
+        employeeAddress: 'Jl. Kemang Timur No. 42, Jakarta Selatan',
+        department: 'Engineering',
+        position: 'Lead Full-Stack Architect',
+        workLocation: 'Kantor Pusat Jakarta (Hybrid)',
+        startDate: '2023-06-01',
+        endDate: null as string | null,
+        durationMonths: null as number | null,
+        probationMonths: 0,
+        baseSalary: 18500000,
+        fixedAllowance: 3500000,
+        workingHours: 'Senin – Jumat, 09.00 – 17.00 WIB',
+        signerName: 'Bambang Wibowo',
+        signerTitle: 'Direktur Utama',
+        signedDate: '2023-05-25',
+        city: 'Jakarta',
+        customClauses:
+          'Karyawan berhak atas fasilitas asuransi kesehatan tambahan serta tunjangan perangkat kerja sesuai kebijakan Divisi Engineering.',
+        status: 'active',
+        verificationCode: 'FF-SK-2023-7A9C4E12',
+        createdBy: 'Administrator',
+      },
+      {
+        id: 'ctr-002',
+        contractNumber: 'PKWT/HRD/2026/001',
+        contractType: 'pkwt',
+        employeeId: 'emp-003',
+        employeeNip: 'EMP-2024-011',
+        employeeName: 'Dimas Kusuma',
+        employeeEmail: 'dimas.kusuma@nusantarakarya.co.id',
+        employeeNik: '3173052208950002',
+        employeeAddress: 'Jl. Tebet Barat Dalam VIII No. 14, Jakarta Selatan',
+        department: 'Operasional & SLA',
+        position: 'Cloud Infrastructure Engineer',
+        workLocation: 'Kantor Pusat Jakarta (SCBD)',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        durationMonths: 12,
+        probationMonths: 0,
+        baseSalary: 13000000,
+        fixedAllowance: 2000000,
+        workingHours: 'Senin – Jumat, 09.00 – 17.00 WIB (Rotasi On-Call SLA)',
+        signerName: 'Siti Rahmawati',
+        signerTitle: 'Head of HR & People Operations',
+        signedDate: '2025-12-20',
+        city: 'Jakarta',
+        customClauses:
+          'Termasuk kesediaan rotasi jadwal pemeliharaan server produksi di luar jam operasional dengan kompensasi lembur sesuai ketentuan perusahaan.',
+        status: 'active',
+        verificationCode: 'FF-PKWT-2026-3D8B1F09',
+        createdBy: 'Siti Rahmawati',
+      },
     ];
 
     for (const ctr of seedContracts) {
-      insertContract.run(...ctr);
+      const hash = computeContractVerificationHash({
+        verificationCode: ctr.verificationCode,
+        contractNumber: ctr.contractNumber,
+        contractType: ctr.contractType,
+        employeeNip: ctr.employeeNip,
+        employeeName: ctr.employeeName,
+        department: ctr.department,
+        position: ctr.position,
+        startDate: ctr.startDate,
+        endDate: ctr.endDate,
+        signedDate: ctr.signedDate,
+        signerName: ctr.signerName,
+      });
+      insertContract.run(
+        ctr.id,
+        ctr.contractNumber,
+        ctr.contractType,
+        ctr.employeeId,
+        ctr.employeeNip,
+        ctr.employeeName,
+        ctr.employeeEmail,
+        ctr.employeeNik,
+        ctr.employeeAddress,
+        ctr.department,
+        ctr.position,
+        ctr.workLocation,
+        ctr.startDate,
+        ctr.endDate,
+        ctr.durationMonths,
+        ctr.probationMonths,
+        ctr.baseSalary,
+        ctr.fixedAllowance,
+        ctr.workingHours,
+        ctr.signerName,
+        ctr.signerTitle,
+        ctr.signedDate,
+        ctr.city,
+        ctr.customClauses,
+        ctr.status,
+        ctr.verificationCode,
+        hash,
+        ctr.createdBy,
+        now,
+        now
+      );
+    }
+  }
+
+  // Backfill verification_code & verification_hash for any existing contracts without them
+  const missingVerifyRows = db
+    .prepare(
+      "SELECT * FROM employee_contracts WHERE verification_code = '' OR verification_hash = ''"
+    )
+    .all() as Array<Record<string, unknown>>;
+  if (missingVerifyRows.length > 0) {
+    const updateVerify = db.prepare(
+      'UPDATE employee_contracts SET verification_code = ?, verification_hash = ? WHERE id = ?'
+    );
+    for (const row of missingVerifyRows) {
+      const code =
+        String(row.verification_code || '').trim() ||
+        generateContractVerificationCode(
+          String(row.contract_type || 'pkwt'),
+          String(row.signed_date || '')
+        );
+      const hash = computeContractVerificationHash({
+        verificationCode: code,
+        contractNumber: String(row.contract_number || ''),
+        contractType: String(row.contract_type || 'pkwt'),
+        employeeNip: String(row.employee_nip || ''),
+        employeeName: String(row.employee_name || ''),
+        department: String(row.department || ''),
+        position: String(row.position || ''),
+        startDate: String(row.start_date || ''),
+        endDate: row.end_date ? String(row.end_date) : null,
+        signedDate: String(row.signed_date || ''),
+        signerName: String(row.signer_name || ''),
+      });
+      updateVerify.run(code, hash, String(row.id));
+    }
+  }
+
+  const handoverCount = (
+    db.prepare('SELECT COUNT(*) as count FROM goods_handovers').get() as { count: number }
+  ).count;
+  if (shouldSeedSampleData && handoverCount === 0) {
+    const insertHandover = db.prepare(
+      `INSERT INTO goods_handovers
+       (id, handover_number, handover_type, status, handover_date, city, location, reference_type, reference_id, reference_number, sender_name, sender_title, recipient_name, recipient_company, recipient_identity, recipient_phone, recipient_address, items_json, notes, received_at, verification_code, verification_hash, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+
+    const seedHandovers = [
+      {
+        id: 'bast-001',
+        handoverNumber: 'BAST/OUT/2026/001',
+        handoverType: 'client_delivery',
+        status: 'received',
+        handoverDate: '2026-11-10',
+        city: 'Jakarta',
+        location: 'Kantor PT Sinar Mas Digital, Thamrin',
+        referenceType: 'invoice',
+        referenceId: 'inv-101',
+        referenceNumber: 'INV-2026-101',
+        senderName: 'Anisa Maharani',
+        senderTitle: 'Operasional & Delivery Lead',
+        recipientName: 'Bapak Hendra Wijaya',
+        recipientCompany: 'PT Sinar Mas Digital',
+        recipientIdentity: 'IT Procurement Manager',
+        recipientPhone: '+62 811-9023-4410',
+        recipientAddress: 'Jl. M.H. Thamrin No. 51, Jakarta Pusat',
+        items: [
+          {
+            id: 'bi-001',
+            name: 'Server Rack Appliance Dell PowerEdge R350',
+            specification: 'Intel Xeon E-2336, 32GB ECC RAM, 2x 960GB SSD RAID1',
+            serialNumber: 'SN-DL350-99281A',
+            quantity: 2,
+            unit: 'Unit',
+            condition: 'Baik / Baru',
+            notes: 'Segel garansi resmi 3 tahun lengkap dengan rail kit',
+          },
+          {
+            id: 'bi-002',
+            name: 'Managed Gigabit Switch 24-Port PoE+',
+            specification: 'Layer 2/3, 4x SFP+ Uplink',
+            serialNumber: 'SN-SW24-44190B',
+            quantity: 1,
+            unit: 'Unit',
+            condition: 'Baik / Baru',
+            notes: 'Termasuk kabel power & modul SFP',
+          },
+        ],
+        notes: 'Seluruh unit telah dilakukan uji nyala (burn-in test) dan diterima dalam kondisi lengkap tanpa cacat fisik.',
+        receivedAt: '2026-11-10T14:30:00.000Z',
+        verificationCode: 'FF-BAST-2026-8E4A21C9',
+        createdBy: 'Administrator',
+      },
+      {
+        id: 'bast-002',
+        handoverNumber: 'BAST/INV/2026/001',
+        handoverType: 'employee_asset',
+        status: 'received',
+        handoverDate: '2026-11-12',
+        city: 'Jakarta',
+        location: 'Kantor Pusat Jakarta (SCBD)',
+        referenceType: 'employee',
+        referenceId: 'emp-001',
+        referenceNumber: 'EMP-2023-001',
+        senderName: 'Siti Rahmawati',
+        senderTitle: 'Head of HR & General Affairs',
+        recipientName: 'Rizky Pratama',
+        recipientCompany: 'Engineering — Lead Full-Stack Architect',
+        recipientIdentity: 'NIP: EMP-2023-001',
+        recipientPhone: '+62 812-8801-3342',
+        recipientAddress: 'Jl. Kemang Timur No. 42, Jakarta Selatan',
+        items: [
+          {
+            id: 'bi-003',
+            name: 'MacBook Pro 14" M3 Pro Work Device',
+            specification: '18GB Unified Memory / 512GB SSD / Space Black',
+            serialNumber: 'C02YM4K9JGH5',
+            quantity: 1,
+            unit: 'Unit',
+            condition: 'Baik / Baru',
+            notes: 'Beserta adaptor 70W USB-C, kabel MagSafe 3 & tas laptop',
+          },
+          {
+            id: 'bi-004',
+            name: 'Kartu Akses Gedung & Security YubiKey 5C',
+            specification: 'RFID Access Card + Hardware 2FA Token',
+            serialNumber: 'YK5C-229104',
+            quantity: 1,
+            unit: 'Set',
+            condition: 'Tersegel / Lengkap',
+            notes: 'Wajib dikembalikan apabila masa kerja berakhir',
+          },
+        ],
+        notes: 'Penerima bertanggung jawab menjaga keamanan fisik serta kerahasiaan data perangkat inventaris perusahaan.',
+        receivedAt: '2026-11-12T10:15:00.000Z',
+        verificationCode: 'FF-BAST-2026-5C19D4F2',
+        createdBy: 'Siti Rahmawati',
+      },
+    ];
+
+    for (const h of seedHandovers) {
+      const hash = computeHandoverVerificationHash({
+        verificationCode: h.verificationCode,
+        handoverNumber: h.handoverNumber,
+        handoverType: h.handoverType,
+        handoverDate: h.handoverDate,
+        senderName: h.senderName,
+        recipientName: h.recipientName,
+        items: h.items,
+      });
+      insertHandover.run(
+        h.id,
+        h.handoverNumber,
+        h.handoverType,
+        h.status,
+        h.handoverDate,
+        h.city,
+        h.location,
+        h.referenceType,
+        h.referenceId,
+        h.referenceNumber,
+        h.senderName,
+        h.senderTitle,
+        h.recipientName,
+        h.recipientCompany,
+        h.recipientIdentity,
+        h.recipientPhone,
+        h.recipientAddress,
+        JSON.stringify(h.items),
+        h.notes,
+        h.receivedAt,
+        h.verificationCode,
+        hash,
+        h.createdBy,
+        now,
+        now
+      );
     }
   }
 }

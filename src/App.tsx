@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   CreditCard,
   Download,
@@ -38,6 +39,7 @@ import type {
   EmailLog,
   Employee,
   EmployeeContract,
+  GoodsHandover,
   Invoice,
   InvoiceStatus,
   LeaveEmployeeOption,
@@ -74,9 +76,13 @@ import { ScheduleModal } from './components/ScheduleModal';
 import { ClientModal } from './components/ClientModal';
 import { ProductModal } from './components/ProductModal';
 import { EmployeeModal } from './components/EmployeeModal';
+import { HandoversView } from './components/HandoversView';
+import { HandoverModal } from './components/HandoverModal';
+import { HandoverPreviewDrawer } from './components/HandoverPreviewDrawer';
 import { ContractsView } from './components/ContractsView';
 import { ContractModal } from './components/ContractModal';
 import { ContractPreviewDrawer } from './components/ContractPreviewDrawer';
+import { ContractVerifyView } from './components/ContractVerifyView';
 import { PayrollModal } from './components/PayrollModal';
 import { PayrollDetailDrawer } from './components/PayrollDetailDrawer';
 import { LeaveModal } from './components/LeaveModal';
@@ -179,6 +185,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [contracts, setContracts] = useState<EmployeeContract[]>([]);
+  const [handovers, setHandovers] = useState<GoodsHandover[]>([]);
   const [payrolls, setPayrolls] = useState<PayrollRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveEmployees, setLeaveEmployees] = useState<LeaveEmployeeOption[]>([]);
@@ -224,6 +231,15 @@ export default function App() {
   const [editingContract, setEditingContract] = useState<EmployeeContract | null>(null);
   const [contractPreselectedEmpId, setContractPreselectedEmpId] = useState<string | undefined>(undefined);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [handoverModalOpen, setHandoverModalOpen] = useState(false);
+  const [editingHandover, setEditingHandover] = useState<GoodsHandover | null>(null);
+  const [selectedHandoverId, setSelectedHandoverId] = useState<string | null>(null);
+  const [publicVerifyCode, setPublicVerifyCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.has('verify') ? params.get('verify') || '' : null;
+  });
+  const [verifyModalCode, setVerifyModalCode] = useState<string | null>(null);
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
   const [selectedPayrollId, setSelectedPayrollId] = useState<string | null>(null);
@@ -371,6 +387,7 @@ export default function App() {
         setProducts(data.products);
         setEmployees(data.employees);
         setContracts(data.contracts || []);
+        setHandovers(data.handovers || []);
         setPayrolls(data.payrolls);
         setLeaveRequests(data.leaveRequests || []);
         setLeaveEmployees(data.leaveEmployees || []);
@@ -515,6 +532,23 @@ export default function App() {
     evtSource.addEventListener('contract_deleted', (e) => {
       const payload = safeParse<{ id: string }>(e);
       if (payload?.id) setContracts((prev) => prev.filter((c) => c.id !== payload.id));
+    });
+
+    evtSource.addEventListener('handover_updated', (e) => {
+      const payload = safeParse<{ handover?: GoodsHandover }>(e);
+      if (payload?.handover) {
+        const updated = payload.handover;
+        setHandovers((prev) =>
+          prev.some((h) => h.id === updated.id)
+            ? prev.map((h) => (h.id === updated.id ? updated : h))
+            : [updated, ...prev]
+        );
+      }
+    });
+
+    evtSource.addEventListener('handover_deleted', (e) => {
+      const payload = safeParse<{ id: string }>(e);
+      if (payload?.id) setHandovers((prev) => prev.filter((h) => h.id !== payload.id));
     });
 
     evtSource.addEventListener('leave:created', (e) => {
@@ -879,6 +913,63 @@ export default function App() {
       setSelectedContractId(null);
     }
     showToast(`Dokumen ${ctr.contractNumber} dihapus.`, 'info');
+  };
+
+  const handleSaveHandover = async (payload: Partial<GoodsHandover>) => {
+    const res = await apiFetch('/api/handovers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      handover?: GoodsHandover;
+      message?: string;
+    };
+    if (data.ok && data.handover) {
+      const saved = data.handover;
+      setHandovers((prev) =>
+        prev.some((h) => h.id === saved.id)
+          ? prev.map((h) => (h.id === saved.id ? saved : h))
+          : [saved, ...prev]
+      );
+      showToast(`BAST ${saved.handoverNumber} berhasil disimpan.`, 'success');
+    } else {
+      showToast(data.message || 'Gagal menyimpan dokumen serah terima barang.', 'error');
+      throw new Error(data.message || 'Save handover failed');
+    }
+  };
+
+  const handleMarkHandoverReceived = async (h: GoodsHandover) => {
+    const res = await apiFetch(`/api/handovers/${h.id}/mark-received`, {
+      method: 'POST',
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      handover?: GoodsHandover;
+      message?: string;
+    };
+    if (data.ok && data.handover) {
+      const saved = data.handover;
+      setHandovers((prev) => prev.map((item) => (item.id === saved.id ? saved : item)));
+      showToast(`BAST ${saved.handoverNumber} dikonfirmasi diterima sah.`, 'success');
+    } else {
+      showToast(data.message || 'Gagal memperbarui status BAST.', 'error');
+    }
+  };
+
+  const handleDeleteHandover = async (h: GoodsHandover) => {
+    const res = await apiFetch(`/api/handovers/${h.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { message?: string };
+      showToast(err.message || 'Gagal menghapus dokumen BAST.', 'error');
+      return;
+    }
+    setHandovers((prev) => prev.filter((item) => item.id !== h.id));
+    if (selectedHandoverId === h.id) {
+      setSelectedHandoverId(null);
+    }
+    showToast(`Dokumen ${h.handoverNumber} dihapus.`, 'info');
   };
 
   const handleSavePayroll = async (pay: PayrollRecord) => {
@@ -1303,6 +1394,7 @@ export default function App() {
     schedules: 'Jadwal Email Bulanan',
     products: 'Katalog Produk & Layanan',
     clients: 'Daftar Klien',
+    handovers: 'Bukti Serah Terima Barang (BAST)',
     accounting: 'Akuntansi & Buku Kas Kantor',
     employees: 'Data Karyawan',
     contracts: 'Kontrak Kerja (PKWT) & SK Pengangkatan',
@@ -1325,6 +1417,23 @@ export default function App() {
     );
   };
 
+  if (publicVerifyCode !== null) {
+    return (
+      <ContractVerifyView
+        initialCode={publicVerifyCode}
+        standalone={true}
+        onBack={() => {
+          setPublicVerifyCode(null);
+          if (typeof window !== 'undefined' && window.location.search.includes('verify=')) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('verify');
+            window.history.replaceState({}, '', url.toString());
+          }
+        }}
+      />
+    );
+  }
+
   if (authChecking) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-sm text-slate-600">
@@ -1334,7 +1443,12 @@ export default function App() {
   }
 
   if (!currentUser) {
-    return <LoginView onLogin={handleLogin} />;
+    return (
+      <LoginView
+        onLogin={handleLogin}
+        onOpenVerify={() => setPublicVerifyCode('')}
+      />
+    );
   }
 
   const userRole = currentUser.role in ROLE_META ? currentUser.role : 'user';
@@ -1345,6 +1459,7 @@ export default function App() {
       { id: 'schedules', label: 'Jadwal Bulanan', icon: CalendarClock },
       { id: 'products', label: 'Produk & Layanan', icon: Package },
       { id: 'clients', label: 'Daftar Klien', icon: Users },
+      { id: 'handovers', label: 'Serah Terima (BAST)', icon: ClipboardCheck },
       { id: 'accounting', label: 'Akuntansi Kantor', icon: BookOpen },
       { id: 'employees', label: 'Data Karyawan', icon: UserCheck },
       { id: 'contracts', label: 'Kontrak & SK', icon: ScrollText },
@@ -2357,6 +2472,28 @@ export default function App() {
                 </div>
               )}
 
+              {/* TAB: BUKTI SERAH TERIMA BARANG (BAST) */}
+              {activeTab === 'handovers' && canAccessTab(userRole, 'handovers') && (
+                <HandoversView
+                  handovers={handovers}
+                  company={settings.company}
+                  canManage={PERMISSIONS.canManageHandovers(userRole)}
+                  canDelete={PERMISSIONS.canDeleteHandovers(userRole)}
+                  onOpenCreate={() => {
+                    setEditingHandover(null);
+                    setHandoverModalOpen(true);
+                  }}
+                  onEditHandover={(h) => {
+                    setEditingHandover(h);
+                    setHandoverModalOpen(true);
+                  }}
+                  onSelectHandover={(h) => setSelectedHandoverId(h.id)}
+                  onMarkReceived={handleMarkHandoverReceived}
+                  onDeleteHandover={handleDeleteHandover}
+                  onOpenVerify={(code) => setVerifyModalCode(code ?? '')}
+                />
+              )}
+
               {/* TAB: AKUNTANSI KANTOR SEDERHANA */}
               {activeTab === 'accounting' && PERMISSIONS.canManageAccounting(userRole) && (
                 <AccountingView
@@ -2641,6 +2778,7 @@ export default function App() {
                   }}
                   onSelectContract={(ctr) => setSelectedContractId(ctr.id)}
                   onDeleteContract={handleDeleteContract}
+                  onOpenVerify={(code) => setVerifyModalCode(code ?? '')}
                 />
               )}
 
@@ -3152,7 +3290,49 @@ export default function App() {
           setContractModalOpen(true);
         }}
         onDelete={handleDeleteContract}
+        onOpenVerify={(code) => setVerifyModalCode(code)}
       />
+
+      <HandoverModal
+        open={handoverModalOpen}
+        initialHandover={editingHandover}
+        clients={clients}
+        invoices={invoices}
+        products={products}
+        employees={employees}
+        existingHandovers={handovers}
+        defaultSenderName={currentUser.name}
+        onClose={() => setHandoverModalOpen(false)}
+        onSave={handleSaveHandover}
+      />
+
+      <HandoverPreviewDrawer
+        handover={handovers.find((h) => h.id === selectedHandoverId) || null}
+        company={settings.company}
+        canManage={PERMISSIONS.canManageHandovers(userRole)}
+        canDelete={PERMISSIONS.canDeleteHandovers(userRole)}
+        onClose={() => setSelectedHandoverId(null)}
+        onEdit={(h) => {
+          setSelectedHandoverId(null);
+          setEditingHandover(h);
+          setHandoverModalOpen(true);
+        }}
+        onMarkReceived={handleMarkHandoverReceived}
+        onDelete={handleDeleteHandover}
+        onOpenVerify={(code) => setVerifyModalCode(code)}
+      />
+
+      {verifyModalCode !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl">
+            <ContractVerifyView
+              initialCode={verifyModalCode}
+              standalone={false}
+              onBack={() => setVerifyModalCode(null)}
+            />
+          </div>
+        </div>
+      )}
 
       <PayrollModal
         open={payrollModalOpen}

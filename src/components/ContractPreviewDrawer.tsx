@@ -8,6 +8,7 @@ import {
   formatLongDateId,
 } from '../lib/formatters';
 import { generateContractPdf } from '../lib/contractPdf';
+import { BarcodeBlock } from './BarcodeBlock';
 
 interface ContractPreviewDrawerProps {
   contract: EmployeeContract | null;
@@ -16,6 +17,7 @@ interface ContractPreviewDrawerProps {
   onClose: () => void;
   onEdit: (contract: EmployeeContract) => void;
   onDelete: (contract: EmployeeContract) => Promise<void>;
+  onOpenVerify?: (code: string) => void;
 }
 
 export const ContractPreviewDrawer: React.FC<ContractPreviewDrawerProps> = ({
@@ -25,6 +27,7 @@ export const ContractPreviewDrawer: React.FC<ContractPreviewDrawerProps> = ({
   onClose,
   onEdit,
   onDelete,
+  onOpenVerify,
 }) => {
   if (!contract) return null;
 
@@ -55,7 +58,9 @@ export const ContractPreviewDrawer: React.FC<ContractPreviewDrawerProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => generateContractPdf(contract, company)}
+              onClick={() => {
+                void generateContractPdf(contract, company);
+              }}
               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-xs font-medium text-white hover:bg-blue-800 whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5" />
@@ -313,6 +318,15 @@ export const ContractPreviewDrawer: React.FC<ContractPreviewDrawerProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Official Digital Barcode & QR Verification Block */}
+            <div className="pt-4 border-t border-slate-200">
+              <BarcodeBlock
+                verificationCode={contract.verificationCode || contract.contractNumber}
+                verificationHash={contract.verificationHash}
+                onOpenVerify={onOpenVerify}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
@@ -14,23 +15,64 @@ function loadDotEnv() {
   }
 }
 
+function canUseDir(dirPath) {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    fs.accessSync(dirPath, fs.constants.R_OK | fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function ensurePersistentDbDirectory() {
-  const resolveFromRoot = (rawPath) =>
-    path.isAbsolute(rawPath) ? path.normalize(rawPath) : path.resolve(__dirname, rawPath);
+  const resolveFromRoot = (rawPath) => {
+    const expanded =
+      rawPath.startsWith('~/') || rawPath === '~'
+        ? path.join(os.homedir(), rawPath.slice(1))
+        : rawPath;
+    return path.isAbsolute(expanded)
+      ? path.normalize(expanded)
+      : path.resolve(__dirname, expanded);
+  };
 
   const explicitPath =
     process.env.DATABASE_PATH?.trim() ||
     process.env.SQLITE_PATH?.trim() ||
     process.env.DB_PATH?.trim();
 
-  const targetDir = explicitPath
-    ? path.dirname(resolveFromRoot(explicitPath))
-    : process.env.DATA_DIR?.trim()
-      ? resolveFromRoot(process.env.DATA_DIR.trim())
-      : path.join(__dirname, 'data');
+  if (explicitPath) {
+    const targetDir = path.dirname(resolveFromRoot(explicitPath));
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.accessSync(targetDir, fs.constants.R_OK | fs.constants.W_OK);
+    return;
+  }
 
-  fs.mkdirSync(targetDir, { recursive: true });
-  fs.accessSync(targetDir, fs.constants.R_OK | fs.constants.W_OK);
+  const configuredDataDir = process.env.DATA_DIR?.trim();
+  if (configuredDataDir) {
+    const targetDir = resolveFromRoot(configuredDataDir);
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.accessSync(targetDir, fs.constants.R_OK | fs.constants.W_OK);
+    return;
+  }
+
+  const hostMatch = path
+    .normalize(__dirname)
+    .match(/^(.+?)[/\\]hbuilds[/\\]versions[/\\]([^/\\]+)(?:[/\\].*)?$/i);
+  if (hostMatch) {
+    const domainRoot = hostMatch[1];
+    const hbuildsDir = path.join(domainRoot, 'hbuilds');
+    if (
+      canUseDir(path.join(domainRoot, 'fakturaflow-data')) ||
+      canUseDir(path.join(hbuildsDir, 'fakturaflow-data'))
+    ) {
+      return;
+    }
+  }
+
+  const fallbackDir = path.join(__dirname, 'data');
+  fs.mkdirSync(fallbackDir, { recursive: true });
+  fs.accessSync(fallbackDir, fs.constants.R_OK | fs.constants.W_OK);
 }
 
 loadDotEnv();

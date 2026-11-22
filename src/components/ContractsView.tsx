@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Download, Eye, Plus, Search, Trash2 } from 'lucide-react';
+import { Download, Eye, Plus, QrCode, Search, Trash2 } from 'lucide-react';
 import type {
   CompanyProfile,
   ContractStatus,
@@ -23,6 +23,7 @@ interface ContractsViewProps {
   onEditContract: (contract: EmployeeContract) => void;
   onSelectContract: (contract: EmployeeContract) => void;
   onDeleteContract: (contract: EmployeeContract) => Promise<void>;
+  onOpenVerify: (code?: string) => void;
 }
 
 export const ContractsView: React.FC<ContractsViewProps> = ({
@@ -33,6 +34,7 @@ export const ContractsView: React.FC<ContractsViewProps> = ({
   onEditContract,
   onSelectContract,
   onDeleteContract,
+  onOpenVerify,
 }) => {
   const [typeFilter, setTypeFilter] = useState<'all' | ContractType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ContractStatus>('all');
@@ -100,6 +102,14 @@ export const ContractsView: React.FC<ContractsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenVerify('')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap shrink-0"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span>Cek Barcode</span>
+          </button>
           <button
             type="button"
             onClick={() => exportContractsCsv(filteredContracts)}
@@ -276,7 +286,10 @@ export const ContractsView: React.FC<ContractsViewProps> = ({
                           {ctr.contractNumber}
                         </button>
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {typeMeta.shortLabel} · Ttd {formatDateId(ctr.signedDate)}
+                          {typeMeta.shortLabel} ·{' '}
+                          <span className="font-mono text-slate-700">
+                            {ctr.verificationCode || '—'}
+                          </span>
                         </div>
                       </td>
 
@@ -327,7 +340,9 @@ export const ContractsView: React.FC<ContractsViewProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => generateContractPdf(ctr, company)}
+                            onClick={() => {
+                              void generateContractPdf(ctr, company);
+                            }}
                             className="inline-flex items-center gap-1 rounded border border-slate-200 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
                             title="Unduh PDF Resmi"
                           >

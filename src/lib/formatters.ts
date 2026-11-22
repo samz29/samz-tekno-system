@@ -5,6 +5,9 @@ import type {
   ContractStatus,
   ContractType,
   EmployeeContract,
+  GoodsHandover,
+  HandoverStatus,
+  HandoverType,
   Invoice,
   InvoiceStatus,
   LeaveRequest,
@@ -483,6 +486,88 @@ export function exportContractsCsv(contracts: EmployeeContract[]): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = `fakturaflow-kontrak-sk-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export const HANDOVER_TYPE_META: Record<
+  HandoverType,
+  { label: string; shortLabel: string; documentTitle: string }
+> = {
+  client_delivery: {
+    label: 'BAST Penyerahan Barang / Klien',
+    shortLabel: 'BAST Klien',
+    documentTitle: 'BERITA ACARA SERAH TERIMA BARANG (BAST)',
+  },
+  employee_asset: {
+    label: 'BAST Inventaris & Aset Karyawan',
+    shortLabel: 'Aset Karyawan',
+    documentTitle: 'BERITA ACARA SERAH TERIMA INVENTARIS KARYAWAN',
+  },
+};
+
+export const HANDOVER_STATUS_META: Record<
+  HandoverStatus,
+  { label: string; textClass: string }
+> = {
+  draft: { label: 'Draf', textClass: 'text-slate-600' },
+  handed_over: { label: 'Diserahkan / Dikirim', textClass: 'text-amber-700' },
+  received: { label: 'Diterima Sah', textClass: 'text-emerald-700' },
+};
+
+export const HANDOVER_ITEM_CONDITIONS = [
+  'Baik / Baru',
+  'Baik / Layak Pakai',
+  'Tersegel / Lengkap',
+  'Rusak Ringan',
+  'Perlu Pemeriksaan',
+] as const;
+
+export function exportHandoversCsv(handovers: GoodsHandover[]): void {
+  const headers = [
+    'Nomor BAST',
+    'Jenis BAST',
+    'Tanggal Serah Terima',
+    'Lokasi',
+    'Referensi',
+    'Pihak Pertama (Penyerah)',
+    'Pihak Kedua (Penerima)',
+    'Perusahaan / Divisi Penerima',
+    'Jumlah Jenis Barang',
+    'Total Unit',
+    'Status',
+    'Kode Verifikasi',
+  ];
+
+  const rows = handovers.map((h) => {
+    const totalQty = h.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    return [
+      h.handoverNumber,
+      HANDOVER_TYPE_META[h.handoverType]?.shortLabel || h.handoverType,
+      h.handoverDate,
+      `${h.city} - ${h.location}`,
+      h.referenceNumber || '-',
+      `${h.senderName} (${h.senderTitle})`,
+      h.recipientName,
+      h.recipientCompany || '-',
+      String(h.items.length),
+      String(totalQty),
+      HANDOVER_STATUS_META[h.status]?.label || h.status,
+      h.verificationCode,
+    ];
+  });
+
+  const csvContent = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    )
+    .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `fakturaflow-bast-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }

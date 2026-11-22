@@ -1,11 +1,13 @@
 import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 import type { CompanyProfile, EmployeeContract } from '../types';
 import { formatIdr, formatLongDateId } from './formatters';
+import { buildVerifyUrl, encodeCode128B } from './barcode';
 
-export function generateContractPdf(
+export async function generateContractPdf(
   contract: EmployeeContract,
   company: CompanyProfile
-): void {
+): Promise<void> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -16,7 +18,7 @@ export function generateContractPdf(
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 18;
   const contentWidth = pageWidth - margin * 2;
-  const bottomLimit = pageHeight - 20;
+  const bottomLimit = pageHeight - 22;
 
   let y = 16;
 
@@ -90,7 +92,6 @@ export function generateContractPdf(
   const totalCompensation = contract.baseSalary + contract.fixedAllowance;
 
   if (contract.contractType === 'pkwt') {
-    // --- JUDUL PKWT ---
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12.5);
     doc.setTextColor(15, 23, 42);
@@ -114,7 +115,6 @@ export function generateContractPdf(
     );
     y += 3;
 
-    // Identitas Pihak Pertama & Kedua
     const writePartyRow = (label: string, value: string) => {
       ensureSpace(5.5);
       doc.setFont('helvetica', 'normal');
@@ -221,7 +221,6 @@ export function generateContractPdf(
       writeClause('Pasal 7 — Ketentuan Tambahan', contract.customClauses.trim());
     }
 
-    // Blok Tanda Tangan PKWT
     ensureSpace(44);
     y += 4;
     writeWrapped(
@@ -263,8 +262,8 @@ export function generateContractPdf(
     doc.setTextColor(100, 116, 139);
     doc.text(contract.signerTitle, leftX, y);
     doc.text(`NIP: ${contract.employeeNip}`, rightX, y);
+    y += 8;
   } else {
-    // --- SK PENGANGKATAN KARYAWAN TETAP (PKWTT) ---
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12.5);
     doc.setTextColor(15, 23, 42);
@@ -284,7 +283,7 @@ export function generateContractPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(15, 23, 42);
-    doc.text(`TENTANG PENGANGKATAN KARYAWAN TETAP (PKWTT)`, pageWidth / 2, y, {
+    doc.text('TENTANG PENGANGKATAN KARYAWAN TETAP (PKWTT)', pageWidth / 2, y, {
       align: 'center',
     });
     y += 8;
@@ -373,7 +372,6 @@ export function generateContractPdf(
       `Surat Keputusan ini berlaku sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan dalam penetapan ini, akan dilakukan perbaikan sebagaimana mestinya.`,
     ]);
 
-    // Blok Pengesahan & Tanda Tangan
     ensureSpace(44);
     y += 4;
     const signX = pageWidth - margin - 66;
@@ -396,7 +394,6 @@ export function generateContractPdf(
     doc.setTextColor(100, 116, 139);
     doc.text(contract.signerTitle, signX, y);
 
-    // Tembusan kiri bawah
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
@@ -405,7 +402,73 @@ export function generateContractPdf(
     doc.text('1. Karyawan yang bersangkutan', margin, y - 11.5);
     doc.text('2. Divisi Keuangan & Payroll', margin, y - 7.5);
     doc.text('3. Arsip HRD', margin, y - 3.5);
+    y += 8;
   }
+
+  // --- Official Digital Barcode Verification Block (QR + Code128B) ---
+  const verifyCode = contract.verificationCode || contract.contractNumber;
+  const verifyUrl = buildVerifyUrl(verifyCode);
+
+  ensureSpace(34);
+  y += 2;
+
+  const boxHeight = 29;
+  doc.setDrawColor(203, 213, 225);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(margin, y, contentWidth, boxHeight, 2, 2, 'FD');
+
+  try {
+    const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+      width: 240,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0F172A', light: '#FFFFFF' },
+    });
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + 3, y + 3, 23, 23, 'F');
+    doc.addImage(qrDataUrl, 'PNG', margin + 3.5, y + 3.5, 22, 22, undefined, 'FAST');
+  } catch {
+    // Fallback if QR generation fails in headless mode
+  }
+
+  const infoX = margin + 30;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('SISTEM VERIFIKASI KEASLIAN DOKUMEN DIGITAL', infoX, y + 6.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    `Kode Verifikasi: ${verifyCode}   |   SHA-256: ${contract.verificationHash || '—'}`,
+    infoX,
+    y + 11.2
+  );
+
+  // Draw crisp 1D Code 128B Linear Barcode
+  const encoded = encodeCode128B(verifyCode);
+  const barcodeMaxWidth = 74;
+  const unitW = Math.min(0.45, barcodeMaxWidth / encoded.totalWidth);
+  let cursorX = infoX;
+  const barY = y + 13.5;
+  const barH = 8.5;
+
+  doc.setFillColor(15, 23, 42);
+  for (let i = 0; i < encoded.modules.length; i++) {
+    const w = encoded.modules[i] * unitW;
+    if (i % 2 === 0) {
+      doc.rect(cursorX, barY, w, barH, 'F');
+    }
+    cursorX += w;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  const urlPreview =
+    verifyUrl.length > 76 ? `${verifyUrl.slice(0, 73)}...` : verifyUrl;
+  doc.text(`Pindai QR / Barcode atau buka: ${urlPreview}`, infoX, y + 25.8);
 
   // Footer pagination on every page
   const totalPages = doc.getNumberOfPages();
@@ -415,7 +478,7 @@ export function generateContractPdf(
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `${company.name} · ${contract.contractNumber} · Halaman ${i} dari ${totalPages}`,
+      `${company.name} · ${contract.contractNumber} · Verifikasi ${verifyCode} · Hal. ${i}/${totalPages}`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }

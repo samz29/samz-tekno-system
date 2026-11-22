@@ -6,6 +6,7 @@ export type AppTab =
   | 'schedules'
   | 'products'
   | 'clients'
+  | 'handovers'
   | 'accounting'
   | 'employees'
   | 'contracts'
@@ -76,6 +77,7 @@ const TAB_ROLES: Record<AppTab, UserRole[]> = {
   schedules: ['admin', 'manager'],
   products: ['admin', 'manager', 'user'],
   clients: ['admin', 'manager', 'user'],
+  handovers: ['admin', 'manager', 'hrd', 'user'],
   accounting: ['admin', 'manager'],
   employees: ['admin', 'manager', 'hrd'],
   contracts: ['admin', 'manager', 'hrd'],
@@ -102,6 +104,8 @@ export const PERMISSIONS = {
   canOperateMidtrans: (role: UserRole) => ['admin', 'manager'].includes(role),
   canManageSchedules: (role: UserRole) => ['admin', 'manager'].includes(role),
   canManageProductsClients: (role: UserRole) => ['admin', 'manager'].includes(role),
+  canManageHandovers: (role: UserRole) => ['admin', 'manager', 'hrd', 'user'].includes(role),
+  canDeleteHandovers: (role: UserRole) => ['admin', 'manager', 'hrd'].includes(role),
   canManageAccounting: (role: UserRole) => ['admin', 'manager'].includes(role),
   canManageEmployees: (role: UserRole) => ['admin', 'hrd'].includes(role),
   canManageContracts: (role: UserRole) => ['admin', 'hrd'].includes(role),

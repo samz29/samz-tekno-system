@@ -22,6 +22,8 @@ import type {
   Product,
   Employee,
   EmployeeContract,
+  GoodsHandover,
+  HandoverItem,
   LeaveRequest,
   PayrollRecord,
   PtkpStatus,
@@ -362,6 +364,52 @@ export function mapContractRow(row: Record<string, unknown>): EmployeeContract {
     city: String(row.city || 'Jakarta'),
     customClauses: String(row.custom_clauses || ''),
     status: String(row.status || 'active') as EmployeeContract['status'],
+    verificationCode: String(row.verification_code || ''),
+    verificationHash: String(row.verification_hash || ''),
+    createdBy: String(row.created_by || 'Sistem'),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+export function mapHandoverRow(row: Record<string, unknown>): GoodsHandover {
+  let items: HandoverItem[] = [];
+  try {
+    const parsed = JSON.parse(String(row.items_json || '[]'));
+    if (Array.isArray(parsed)) items = parsed as HandoverItem[];
+  } catch {
+    items = [];
+  }
+
+  return {
+    id: String(row.id),
+    handoverNumber: String(row.handover_number),
+    handoverType: (String(row.handover_type) === 'employee_asset'
+      ? 'employee_asset'
+      : 'client_delivery') as GoodsHandover['handoverType'],
+    status: (['draft', 'handed_over', 'received'].includes(String(row.status))
+      ? String(row.status)
+      : 'handed_over') as GoodsHandover['status'],
+    handoverDate: String(row.handover_date),
+    city: String(row.city || 'Jakarta'),
+    location: String(row.location || ''),
+    referenceType: (['invoice', 'employee', 'manual'].includes(String(row.reference_type))
+      ? String(row.reference_type)
+      : 'manual') as GoodsHandover['referenceType'],
+    referenceId: row.reference_id ? String(row.reference_id) : null,
+    referenceNumber: String(row.reference_number || ''),
+    senderName: String(row.sender_name || ''),
+    senderTitle: String(row.sender_title || ''),
+    recipientName: String(row.recipient_name || ''),
+    recipientCompany: String(row.recipient_company || ''),
+    recipientIdentity: String(row.recipient_identity || ''),
+    recipientPhone: String(row.recipient_phone || ''),
+    recipientAddress: String(row.recipient_address || ''),
+    items,
+    notes: String(row.notes || ''),
+    receivedAt: row.received_at ? String(row.received_at) : null,
+    verificationCode: String(row.verification_code || ''),
+    verificationHash: String(row.verification_hash || ''),
     createdBy: String(row.created_by || 'Sistem'),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),

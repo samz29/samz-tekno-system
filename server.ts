@@ -15,6 +15,10 @@ import {
   verifyDatabaseConnection,
   closeDatabase,
   withTransaction,
+  generateContractVerificationCode,
+  computeContractVerificationHash,
+  generateHandoverVerificationCode,
+  computeHandoverVerificationHash,
   type MidtransInternalConfig,
   type SmtpInternalConfig,
   type CompanyInternalConfig,
@@ -29,6 +33,7 @@ import {
   mapProductRow,
   mapEmployeeRow,
   mapContractRow,
+  mapHandoverRow,
   mapLeaveRow,
   mapAccountingRow,
   mapPayrollRow,
@@ -57,6 +62,8 @@ import type {
   Product,
   Employee,
   EmployeeContract,
+  GoodsHandover,
+  HandoverItem,
   LeaveEmployeeOption,
   LeaveRequest,
   PayrollRecord,
@@ -248,6 +255,12 @@ function getFullBootstrap(reqHost?: string, currentUser?: AuthUser): BootstrapPa
       ).map(mapContractRow)
     : [];
 
+  const handovers = (
+    db
+      .prepare('SELECT * FROM goods_handovers ORDER BY handover_date DESC, updated_at DESC')
+      .all() as Array<Record<string, unknown>>
+  ).map(mapHandoverRow);
+
   const payrolls = canViewHrPayroll
     ? (
         db
@@ -362,6 +375,7 @@ function getFullBootstrap(reqHost?: string, currentUser?: AuthUser): BootstrapPa
     products,
     employees,
     contracts,
+    handovers,
     payrolls,
     leaveRequests,
     leaveEmployees,
@@ -832,14 +846,24 @@ async function startServer() {
     if (!dbHealth.ok) {
       res.status(503).json({
         ok: false,
-        database: { ok: false, error: dbHealth.error || 'Database unavailable' },
+        database: {
+          ok: false,
+          source: dbHealth.source,
+          persistent: dbHealth.persistent,
+          error: dbHealth.error || 'Database unavailable',
+        },
         timestamp: new Date().toISOString(),
       });
       return;
     }
     res.json({
       ok: true,
-      database: { ok: true, journalMode: dbHealth.journalMode },
+      database: {
+        ok: true,
+        journalMode: dbHealth.journalMode,
+        source: dbHealth.source,
+        persistent: dbHealth.persistent,
+      },
       timestamp: new Date().toISOString(),
     });
   });
@@ -1131,6 +1155,105 @@ async function startServer() {
   });
 
   // --- Employee Contracts (PKWT & SK Pengangkatan) ---
+  const verifyContractCodeHandler = (
+    req: express.Request,
+    res: express.Response
+  ): void => {
+    const rawCode = String(
+      req.params.code || (typeof req.query.code === 'string' ? req.query.code : '') || ''
+    ).trim();
+    const verifiedAt = new Date().toISOString();
+
+    if (!rawCode) {
+      res.status(400).json({
+        ok: false,
+        valid: false,
+        message: 'Kode verifikasi barcode atau nomor surat wajib diisi.',
+        verifiedAt,
+      });
+      return;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT * FROM employee_contracts
+         WHERE UPPER(verification_code) = UPPER(?) OR UPPER(contract_number) = UPPER(?)
+         LIMIT 1`
+      )
+      .get(rawCode, rawCode) as Record<string, unknown> | undefined;
+
+    if (!row) {
+      res.status(404).json({
+        ok: false,
+        valid: false,
+        message: `Dokumen dengan kode "${rawCode}" tidak ditemukan dalam arsip resmi sistem.`,
+        verifiedAt,
+      });
+      return;
+    }
+
+    const contract = mapContractRow(row);
+    const expectedHash = computeContractVerificationHash({
+      verificationCode: contract.verificationCode,
+      contractNumber: contract.contractNumber,
+      contractType: contract.contractType,
+      employeeNip: contract.employeeNip,
+      employeeName: contract.employeeName,
+      department: contract.department,
+      position: contract.position,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      signedDate: contract.signedDate,
+      signerName: contract.signerName,
+    });
+
+    const hashMatches = Boolean(contract.verificationHash && contract.verificationHash === expectedHash);
+    const isActive = contract.status === 'active';
+    const valid = hashMatches && isActive;
+    const company = getSetting<CompanyInternalConfig>('company');
+
+    let message = 'Dokumen asli terverifikasi sah dan berstatus aktif berlaku.';
+    if (!hashMatches) {
+      message = 'Sidik jari integritas dokumen tidak cocok dengan catatan sistem.';
+    } else if (contract.status === 'expired') {
+      message = 'Dokumen asli terverifikasi, namun masa berlaku kontrak telah berakhir.';
+    } else if (contract.status === 'terminated') {
+      message = 'Dokumen asli terverifikasi, namun perjanjian telah dihentikan.';
+    } else if (contract.status === 'draft') {
+      message = 'Dokumen masih berstatus draf dan belum disahkan aktif.';
+    }
+
+    res.json({
+      ok: true,
+      valid,
+      message,
+      contract: {
+        verificationCode: contract.verificationCode,
+        verificationHash: contract.verificationHash,
+        contractNumber: contract.contractNumber,
+        contractType: contract.contractType,
+        status: contract.status,
+        employeeName: contract.employeeName,
+        employeeNip: contract.employeeNip,
+        department: contract.department,
+        position: contract.position,
+        workLocation: contract.workLocation,
+        startDate: contract.startDate,
+        endDate: contract.endDate,
+        signedDate: contract.signedDate,
+        city: contract.city,
+        signerName: contract.signerName,
+        signerTitle: contract.signerTitle,
+        companyName: company?.name || 'Perusahaan',
+        companyEmail: company?.email || '',
+      },
+      verifiedAt,
+    });
+  };
+
+  app.get('/api/contracts/verify', verifyContractCodeHandler);
+  app.get('/api/contracts/verify/:code', verifyContractCodeHandler);
+
   app.get('/api/contracts', requireAuth, requireRole('admin', 'manager', 'hrd'), (_req, res) => {
     const rows = db
       .prepare('SELECT * FROM employee_contracts ORDER BY signed_date DESC, updated_at DESC')
@@ -1234,11 +1357,40 @@ async function startServer() {
 
       let updatedEmployee: Employee | undefined;
 
+      const existingRow = db
+        .prepare('SELECT verification_code FROM employee_contracts WHERE id = ?')
+        .get(id) as { verification_code?: string } | undefined;
+
+      const resolvedEmployeeName = String(body.employeeName || empRow.name).trim();
+      const resolvedDepartment = String(body.department || empRow.department).trim();
+      const resolvedPosition = String(body.position || empRow.position).trim();
+      const resolvedSignerName = String(body.signerName || req.user?.name || 'Direktur Utama').trim();
+      const resolvedEndDate = contractType === 'pkwt' ? endDate : null;
+
+      const verificationCode =
+        existingRow?.verification_code?.trim() ||
+        (body.verificationCode ? String(body.verificationCode).trim().toUpperCase() : '') ||
+        generateContractVerificationCode(contractType, signedDate);
+
+      const verificationHash = computeContractVerificationHash({
+        verificationCode,
+        contractNumber,
+        contractType,
+        employeeNip: String(empRow.nip),
+        employeeName: resolvedEmployeeName,
+        department: resolvedDepartment,
+        position: resolvedPosition,
+        startDate,
+        endDate: resolvedEndDate,
+        signedDate,
+        signerName: resolvedSignerName,
+      });
+
       withTransaction(() => {
         db.prepare(
           `INSERT INTO employee_contracts
-           (id, contract_number, contract_type, employee_id, employee_nip, employee_name, employee_email, employee_nik, employee_address, department, position, work_location, start_date, end_date, duration_months, probation_months, base_salary, fixed_allowance, working_hours, signer_name, signer_title, signed_date, city, custom_clauses, status, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (id, contract_number, contract_type, employee_id, employee_nip, employee_name, employee_email, employee_nik, employee_address, department, position, work_location, start_date, end_date, duration_months, probation_months, base_salary, fixed_allowance, working_hours, signer_name, signer_title, signed_date, city, custom_clauses, status, verification_code, verification_hash, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
              contract_number = excluded.contract_number,
              contract_type = excluded.contract_type,
@@ -1264,6 +1416,8 @@ async function startServer() {
              city = excluded.city,
              custom_clauses = excluded.custom_clauses,
              status = excluded.status,
+             verification_code = excluded.verification_code,
+             verification_hash = excluded.verification_hash,
              updated_at = excluded.updated_at`
         ).run(
           id,
@@ -1271,26 +1425,28 @@ async function startServer() {
           contractType,
           employeeId,
           String(empRow.nip),
-          String(body.employeeName || empRow.name).trim(),
+          resolvedEmployeeName,
           String(body.employeeEmail || empRow.email || '').trim(),
           String(body.employeeNik || '').trim(),
           String(body.employeeAddress || '').trim(),
-          String(body.department || empRow.department).trim(),
-          String(body.position || empRow.position).trim(),
+          resolvedDepartment,
+          resolvedPosition,
           String(body.workLocation || 'Kantor Pusat Jakarta').trim(),
           startDate,
-          contractType === 'pkwt' ? endDate : null,
+          resolvedEndDate,
           durationMonths,
           probationMonths,
           baseSalary,
           fixedAllowance,
           String(body.workingHours || 'Senin – Jumat, 09.00 – 17.00 WIB').trim(),
-          String(body.signerName || req.user?.name || 'Direktur Utama').trim(),
+          resolvedSignerName,
           String(body.signerTitle || 'Direktur Utama').trim(),
           signedDate,
           String(body.city || 'Jakarta').trim(),
           String(body.customClauses || '').trim(),
           status,
+          verificationCode,
+          verificationHash,
           req.user?.name || 'HRD',
           body.createdAt || now,
           now
@@ -1334,6 +1490,401 @@ async function startServer() {
     broadcastEvent('contract_deleted', { id: req.params.id });
     res.json({ ok: true });
   });
+
+  // --- Bukti Serah Terima Barang (BAST) & Unified Document Barcode Verification ---
+  const buildHandoverVerifyPayload = (
+    row: Record<string, unknown>,
+    verifiedAt: string
+  ) => {
+    const handover = mapHandoverRow(row);
+    const expectedHash = computeHandoverVerificationHash({
+      verificationCode: handover.verificationCode,
+      handoverNumber: handover.handoverNumber,
+      handoverType: handover.handoverType,
+      handoverDate: handover.handoverDate,
+      senderName: handover.senderName,
+      recipientName: handover.recipientName,
+      items: handover.items,
+    });
+    const hashMatches = Boolean(handover.verificationHash && handover.verificationHash === expectedHash);
+    const valid = hashMatches && handover.status !== 'draft';
+    const company = getSetting<CompanyInternalConfig>('company');
+
+    let message = 'Bukti Serah Terima Barang asli terverifikasi sah dan telah diterima.';
+    if (!hashMatches) {
+      message = 'Sidik jari integritas dokumen BAST tidak cocok dengan catatan sistem.';
+    } else if (handover.status === 'draft') {
+      message = 'Dokumen BAST masih berstatus draf dan belum diserahkan resmi.';
+    } else if (handover.status === 'handed_over') {
+      message = 'Dokumen BAST asli terverifikasi sah dan berstatus sedang diserahkan / dalam pengiriman.';
+    }
+
+    return {
+      ok: true,
+      valid,
+      documentCategory: 'handover' as const,
+      message,
+      handover: {
+        verificationCode: handover.verificationCode,
+        verificationHash: handover.verificationHash,
+        handoverNumber: handover.handoverNumber,
+        handoverType: handover.handoverType,
+        status: handover.status,
+        handoverDate: handover.handoverDate,
+        city: handover.city,
+        location: handover.location,
+        referenceNumber: handover.referenceNumber,
+        senderName: handover.senderName,
+        senderTitle: handover.senderTitle,
+        recipientName: handover.recipientName,
+        recipientCompany: handover.recipientCompany,
+        recipientIdentity: handover.recipientIdentity,
+        itemCount: handover.items.length,
+        items: handover.items,
+        receivedAt: handover.receivedAt,
+        companyName: company?.name || 'Perusahaan',
+        companyEmail: company?.email || '',
+      },
+      verifiedAt,
+    };
+  };
+
+  const verifyHandoverCodeHandler = (req: express.Request, res: express.Response): void => {
+    const rawCode = String(
+      req.params.code || (typeof req.query.code === 'string' ? req.query.code : '') || ''
+    ).trim();
+    const verifiedAt = new Date().toISOString();
+
+    if (!rawCode) {
+      res.status(400).json({
+        ok: false,
+        valid: false,
+        message: 'Kode verifikasi barcode atau nomor BAST wajib diisi.',
+        verifiedAt,
+      });
+      return;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT * FROM goods_handovers
+         WHERE UPPER(verification_code) = UPPER(?) OR UPPER(handover_number) = UPPER(?)
+         LIMIT 1`
+      )
+      .get(rawCode, rawCode) as Record<string, unknown> | undefined;
+
+    if (!row) {
+      res.status(404).json({
+        ok: false,
+        valid: false,
+        message: `Bukti Serah Terima Barang dengan kode "${rawCode}" tidak ditemukan dalam arsip resmi sistem.`,
+        verifiedAt,
+      });
+      return;
+    }
+
+    res.json(buildHandoverVerifyPayload(row, verifiedAt));
+  };
+
+  const verifyAnyDocumentHandler = (req: express.Request, res: express.Response): void => {
+    const rawCode = String(
+      req.params.code || (typeof req.query.code === 'string' ? req.query.code : '') || ''
+    ).trim();
+    const verifiedAt = new Date().toISOString();
+
+    if (!rawCode) {
+      res.status(400).json({
+        ok: false,
+        valid: false,
+        message: 'Kode verifikasi barcode atau nomor dokumen resmi wajib diisi.',
+        verifiedAt,
+      });
+      return;
+    }
+
+    const contractRow = db
+      .prepare(
+        `SELECT * FROM employee_contracts
+         WHERE UPPER(verification_code) = UPPER(?) OR UPPER(contract_number) = UPPER(?)
+         LIMIT 1`
+      )
+      .get(rawCode, rawCode) as Record<string, unknown> | undefined;
+
+    if (contractRow) {
+      const contract = mapContractRow(contractRow);
+      const expectedHash = computeContractVerificationHash({
+        verificationCode: contract.verificationCode,
+        contractNumber: contract.contractNumber,
+        contractType: contract.contractType,
+        employeeNip: contract.employeeNip,
+        employeeName: contract.employeeName,
+        department: contract.department,
+        position: contract.position,
+        startDate: contract.startDate,
+        endDate: contract.endDate,
+        signedDate: contract.signedDate,
+        signerName: contract.signerName,
+      });
+      const hashMatches = Boolean(contract.verificationHash && contract.verificationHash === expectedHash);
+      const valid = hashMatches && contract.status === 'active';
+      const company = getSetting<CompanyInternalConfig>('company');
+
+      let message = 'Dokumen asli terverifikasi sah dan berstatus aktif berlaku.';
+      if (!hashMatches) {
+        message = 'Sidik jari integritas dokumen tidak cocok dengan catatan sistem.';
+      } else if (contract.status === 'expired') {
+        message = 'Dokumen asli terverifikasi, namun masa berlaku kontrak telah berakhir.';
+      } else if (contract.status === 'terminated') {
+        message = 'Dokumen asli terverifikasi, namun perjanjian telah dihentikan.';
+      } else if (contract.status === 'draft') {
+        message = 'Dokumen masih berstatus draf dan belum disahkan aktif.';
+      }
+
+      res.json({
+        ok: true,
+        valid,
+        documentCategory: 'contract',
+        message,
+        contract: {
+          verificationCode: contract.verificationCode,
+          verificationHash: contract.verificationHash,
+          contractNumber: contract.contractNumber,
+          contractType: contract.contractType,
+          status: contract.status,
+          employeeName: contract.employeeName,
+          employeeNip: contract.employeeNip,
+          department: contract.department,
+          position: contract.position,
+          workLocation: contract.workLocation,
+          startDate: contract.startDate,
+          endDate: contract.endDate,
+          signedDate: contract.signedDate,
+          city: contract.city,
+          signerName: contract.signerName,
+          signerTitle: contract.signerTitle,
+          companyName: company?.name || 'Perusahaan',
+          companyEmail: company?.email || '',
+        },
+        verifiedAt,
+      });
+      return;
+    }
+
+    const handoverRow = db
+      .prepare(
+        `SELECT * FROM goods_handovers
+         WHERE UPPER(verification_code) = UPPER(?) OR UPPER(handover_number) = UPPER(?)
+         LIMIT 1`
+      )
+      .get(rawCode, rawCode) as Record<string, unknown> | undefined;
+
+    if (handoverRow) {
+      res.json(buildHandoverVerifyPayload(handoverRow, verifiedAt));
+      return;
+    }
+
+    res.status(404).json({
+      ok: false,
+      valid: false,
+      message: `Dokumen dengan kode "${rawCode}" tidak ditemukan dalam arsip resmi sistem.`,
+      verifiedAt,
+    });
+  };
+
+  app.get('/api/handovers/verify', verifyHandoverCodeHandler);
+  app.get('/api/handovers/verify/:code', verifyHandoverCodeHandler);
+  app.get('/api/documents/verify', verifyAnyDocumentHandler);
+  app.get('/api/documents/verify/:code', verifyAnyDocumentHandler);
+
+  app.get('/api/handovers', requireAuth, (_req, res) => {
+    const rows = db
+      .prepare('SELECT * FROM goods_handovers ORDER BY handover_date DESC, updated_at DESC')
+      .all() as Array<Record<string, unknown>>;
+    res.json({ ok: true, handovers: rows.map(mapHandoverRow) });
+  });
+
+  app.post('/api/handovers', requireAuth, (req: AuthedRequest, res) => {
+    const body = req.body as Partial<GoodsHandover>;
+    const handoverType: GoodsHandover['handoverType'] =
+      body.handoverType === 'employee_asset' ? 'employee_asset' : 'client_delivery';
+    const handoverNumber = String(body.handoverNumber || '').trim();
+    const handoverDate = String(body.handoverDate || '').trim() || new Date().toISOString().slice(0, 10);
+    const senderName = String(body.senderName || req.user?.name || '').trim();
+    const recipientName = String(body.recipientName || '').trim();
+
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+    const normalizedItems: HandoverItem[] = rawItems
+      .map((it, idx) => ({
+        id: String(it.id || `bi-${crypto.randomUUID().slice(0, 6)}-${idx}`),
+        name: String(it.name || '').trim(),
+        specification: String(it.specification || '').trim(),
+        serialNumber: String(it.serialNumber || '').trim(),
+        quantity: Math.max(1, Number(it.quantity || 1)),
+        unit: String(it.unit || 'Unit').trim() || 'Unit',
+        condition: String(it.condition || 'Baik / Baru').trim() || 'Baik / Baru',
+        notes: String(it.notes || '').trim(),
+      }))
+      .filter((it) => it.name.length > 0);
+
+    if (!handoverNumber || !senderName || !recipientName) {
+      res.status(400).json({
+        ok: false,
+        message: 'Nomor BAST, nama penyerah (Pihak Pertama), dan nama penerima (Pihak Kedua) wajib diisi.',
+      });
+      return;
+    }
+
+    if (normalizedItems.length === 0) {
+      res.status(400).json({
+        ok: false,
+        message: 'Minimal harus terdapat satu baris barang yang diserahterimakan.',
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const id = String(body.id || `bast-${crypto.randomUUID().slice(0, 8)}`);
+
+    const duplicate = db
+      .prepare('SELECT id FROM goods_handovers WHERE LOWER(handover_number) = LOWER(?) AND id != ?')
+      .get(handoverNumber, id) as { id: string } | undefined;
+    if (duplicate) {
+      res.status(409).json({
+        ok: false,
+        message: `Nomor BAST "${handoverNumber}" sudah terdaftar. Gunakan nomor dokumen yang berbeda.`,
+      });
+      return;
+    }
+
+    const existingRow = db
+      .prepare('SELECT verification_code, received_at FROM goods_handovers WHERE id = ?')
+      .get(id) as { verification_code?: string; received_at?: string | null } | undefined;
+
+    const status: GoodsHandover['status'] =
+      body.status === 'draft' || body.status === 'handed_over' || body.status === 'received'
+        ? body.status
+        : 'handed_over';
+
+    const referenceType: GoodsHandover['referenceType'] =
+      body.referenceType === 'invoice' || body.referenceType === 'employee'
+        ? body.referenceType
+        : 'manual';
+
+    const receivedAt =
+      status === 'received'
+        ? body.receivedAt || existingRow?.received_at || now
+        : null;
+
+    const verificationCode =
+      existingRow?.verification_code?.trim() ||
+      (body.verificationCode ? String(body.verificationCode).trim().toUpperCase() : '') ||
+      generateHandoverVerificationCode(handoverDate);
+
+    const verificationHash = computeHandoverVerificationHash({
+      verificationCode,
+      handoverNumber,
+      handoverType,
+      handoverDate,
+      senderName,
+      recipientName,
+      items: normalizedItems,
+    });
+
+    db.prepare(
+      `INSERT INTO goods_handovers
+       (id, handover_number, handover_type, status, handover_date, city, location, reference_type, reference_id, reference_number, sender_name, sender_title, recipient_name, recipient_company, recipient_identity, recipient_phone, recipient_address, items_json, notes, received_at, verification_code, verification_hash, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         handover_number = excluded.handover_number,
+         handover_type = excluded.handover_type,
+         status = excluded.status,
+         handover_date = excluded.handover_date,
+         city = excluded.city,
+         location = excluded.location,
+         reference_type = excluded.reference_type,
+         reference_id = excluded.reference_id,
+         reference_number = excluded.reference_number,
+         sender_name = excluded.sender_name,
+         sender_title = excluded.sender_title,
+         recipient_name = excluded.recipient_name,
+         recipient_company = excluded.recipient_company,
+         recipient_identity = excluded.recipient_identity,
+         recipient_phone = excluded.recipient_phone,
+         recipient_address = excluded.recipient_address,
+         items_json = excluded.items_json,
+         notes = excluded.notes,
+         received_at = excluded.received_at,
+         verification_code = excluded.verification_code,
+         verification_hash = excluded.verification_hash,
+         updated_at = excluded.updated_at`
+    ).run(
+      id,
+      handoverNumber,
+      handoverType,
+      status,
+      handoverDate,
+      String(body.city || 'Jakarta').trim() || 'Jakarta',
+      String(body.location || '').trim(),
+      referenceType,
+      body.referenceId ? String(body.referenceId).trim() : null,
+      String(body.referenceNumber || '').trim(),
+      senderName,
+      String(body.senderTitle || 'Operasional & Logistik').trim(),
+      recipientName,
+      String(body.recipientCompany || '').trim(),
+      String(body.recipientIdentity || '').trim(),
+      String(body.recipientPhone || '').trim(),
+      String(body.recipientAddress || '').trim(),
+      JSON.stringify(normalizedItems),
+      String(body.notes || '').trim(),
+      receivedAt,
+      verificationCode,
+      verificationHash,
+      req.user?.name || 'Sistem',
+      body.createdAt || now,
+      now
+    );
+
+    const saved = mapHandoverRow(
+      db.prepare('SELECT * FROM goods_handovers WHERE id = ?').get(id) as Record<string, unknown>
+    );
+    broadcastEvent('handover_updated', { handover: saved });
+    res.json({ ok: true, handover: saved });
+  });
+
+  app.post('/api/handovers/:id/mark-received', requireAuth, (req, res) => {
+    const existing = db
+      .prepare('SELECT * FROM goods_handovers WHERE id = ?')
+      .get(req.params.id) as Record<string, unknown> | undefined;
+    if (!existing) {
+      res.status(404).json({ ok: false, message: 'Dokumen BAST tidak ditemukan.' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    db.prepare(
+      `UPDATE goods_handovers
+       SET status = 'received', received_at = COALESCE(received_at, ?), updated_at = ?
+       WHERE id = ?`
+    ).run(now, now, req.params.id);
+
+    const updated = mapHandoverRow(
+      db.prepare('SELECT * FROM goods_handovers WHERE id = ?').get(req.params.id) as Record<string, unknown>
+    );
+    broadcastEvent('handover_updated', { handover: updated });
+    res.json({ ok: true, handover: updated });
+  });
+
+  app.delete(
+    '/api/handovers/:id',
+    requireAuth,
+    requireRole('admin', 'manager', 'hrd'),
+    (req, res) => {
+      db.prepare('DELETE FROM goods_handovers WHERE id = ?').run(req.params.id);
+      broadcastEvent('handover_deleted', { id: req.params.id });
+      res.json({ ok: true });
+    }
+  );
 
   // --- Employee Leave Requests & HRD Approval Workflow ---
   app.post(

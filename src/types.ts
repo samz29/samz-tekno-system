@@ -326,9 +326,113 @@ export interface EmployeeContract {
   city: string;
   customClauses: string;
   status: ContractStatus;
+  verificationCode: string;
+  verificationHash: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContractVerificationResult {
+  ok: boolean;
+  valid: boolean;
+  message: string;
+  contract?: {
+    verificationCode: string;
+    verificationHash: string;
+    contractNumber: string;
+    contractType: ContractType;
+    status: ContractStatus;
+    employeeName: string;
+    employeeNip: string;
+    department: string;
+    position: string;
+    workLocation: string;
+    startDate: string;
+    endDate: string | null;
+    signedDate: string;
+    city: string;
+    signerName: string;
+    signerTitle: string;
+    companyName: string;
+    companyEmail: string;
+  };
+  verifiedAt: string;
+}
+
+export type HandoverType = 'client_delivery' | 'employee_asset';
+export type HandoverStatus = 'draft' | 'handed_over' | 'received';
+export type HandoverReferenceType = 'invoice' | 'employee' | 'manual';
+
+export interface HandoverItem {
+  id: string;
+  name: string;
+  specification: string;
+  serialNumber: string;
+  quantity: number;
+  unit: string;
+  condition: string;
+  notes: string;
+}
+
+export interface GoodsHandover {
+  id: string;
+  handoverNumber: string;
+  handoverType: HandoverType;
+  status: HandoverStatus;
+  handoverDate: string;
+  city: string;
+  location: string;
+  referenceType: HandoverReferenceType;
+  referenceId: string | null;
+  referenceNumber: string;
+  senderName: string;
+  senderTitle: string;
+  recipientName: string;
+  recipientCompany: string;
+  recipientIdentity: string;
+  recipientPhone: string;
+  recipientAddress: string;
+  items: HandoverItem[];
+  notes: string;
+  receivedAt: string | null;
+  verificationCode: string;
+  verificationHash: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HandoverVerificationSummary {
+  verificationCode: string;
+  verificationHash: string;
+  handoverNumber: string;
+  handoverType: HandoverType;
+  status: HandoverStatus;
+  handoverDate: string;
+  city: string;
+  location: string;
+  referenceNumber: string;
+  senderName: string;
+  senderTitle: string;
+  recipientName: string;
+  recipientCompany: string;
+  recipientIdentity: string;
+  itemCount: number;
+  items: HandoverItem[];
+  receivedAt: string | null;
+  companyName: string;
+  companyEmail: string;
+}
+
+export interface DocumentVerificationResult {
+  ok: boolean;
+  valid: boolean;
+  documentCategory?: 'contract' | 'handover';
+  message: string;
+  contract?: ContractVerificationResult['contract'];
+  handover?: HandoverVerificationSummary;
+  verifiedAt: string;
 }
 
 export interface BootstrapPayload {
@@ -337,6 +441,7 @@ export interface BootstrapPayload {
   products: Product[];
   employees: Employee[];
   contracts?: EmployeeContract[];
+  handovers?: GoodsHandover[];
   payrolls: PayrollRecord[];
   leaveRequests?: LeaveRequest[];
   leaveEmployees?: LeaveEmployeeOption[];

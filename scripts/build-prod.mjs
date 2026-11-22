@@ -10,6 +10,15 @@ const distIndex = path.join(appRoot, 'dist', 'index.html');
 const serverOut = path.join(appRoot, 'dist-server', 'server.mjs');
 
 async function run() {
+  const isProdOrDeployEnv =
+    process.env.NODE_ENV === 'production' ||
+    process.env.npm_config_production === 'true' ||
+    /[/\\]hbuilds[/\\]/i.test(appRoot);
+
+  if (ifNeeded && !isProdOrDeployEnv) {
+    return;
+  }
+
   if (ifNeeded && fs.existsSync(distIndex) && fs.existsSync(serverOut)) {
     return;
   }
