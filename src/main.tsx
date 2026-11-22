@@ -92,12 +92,25 @@ if (typeof window !== 'undefined') {
 
 if ('serviceWorker' in navigator) {
   try {
-    registerSW({
-      immediate: true,
-      onRegisteredSW() {
-        // Service Worker active for Web Push notifications
-      },
-    });
+    if (import.meta.env.DEV) {
+      void navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const reg of regs) {
+          void reg.unregister();
+        }
+      });
+    } else {
+      const updateSW = registerSW({
+        immediate: true,
+        onNeedRefresh() {
+          void updateSW(true);
+        },
+        onRegisteredSW(_swUrl, registration) {
+          if (registration) {
+            void registration.update();
+          }
+        },
+      });
+    }
   } catch {
     // Ignore Service Worker registration failures on restricted contexts
   }

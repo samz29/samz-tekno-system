@@ -1459,7 +1459,7 @@ export default function App() {
       { id: 'schedules', label: 'Jadwal Bulanan', icon: CalendarClock },
       { id: 'products', label: 'Produk & Layanan', icon: Package },
       { id: 'clients', label: 'Daftar Klien', icon: Users },
-      { id: 'handovers', label: 'Serah Terima (BAST)', icon: ClipboardCheck },
+      { id: 'handovers', label: 'BAST & Inventaris', icon: ClipboardCheck },
       { id: 'accounting', label: 'Akuntansi Kantor', icon: BookOpen },
       { id: 'employees', label: 'Data Karyawan', icon: UserCheck },
       { id: 'contracts', label: 'Kontrak & SK', icon: ScrollText },
