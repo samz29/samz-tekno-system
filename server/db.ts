@@ -333,6 +333,18 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS contact_inquiries (
+    id TEXT PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    company_name TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
+    subject TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'new',
+    created_at TEXT NOT NULL
+  );
 `);
 
 // Safe migrations for existing databases
@@ -513,6 +525,24 @@ export interface CompanyInternalConfig {
   bankAccountNumber: string;
   bankAccountName: string;
   logoDataUrl?: string;
+  tagline?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  aboutDescription?: string;
+  vision?: string;
+  foundedYear?: string;
+  city?: string;
+  heroCtaLabel?: string;
+  heroImageDataUrl?: string;
+  aboutImageDataUrl?: string;
+  portfolioImageDataUrl?: string;
+  pillars?: Array<{ title: string; description: string }>;
+  caseStudies?: Array<{ sector: string; title: string; metric: string; detail: string }>;
+  showServicesSection?: boolean;
+  showPortfolioSection?: boolean;
+  showVerifySection?: boolean;
+  showContactSection?: boolean;
+  footerNote?: string;
 }
 
 export interface VapidConfig {
@@ -592,6 +622,53 @@ export function ensureInitialData(): void {
       bankAccountNumber: '102-000-8841-920',
       bankAccountName: 'PT Nusantara Digital Karya',
       logoDataUrl: '',
+      tagline: 'Solusi Infrastruktur Digital, Sistem Keuangan & Pengadaan Korporasi',
+      heroTitle: 'Mitra Strategis Infrastruktur Digital & Tata Kelola Bisnis Modern',
+      heroSubtitle:
+        'Kami merancang sistem cloud, integrasi pembayaran korporasi, serta penyediaan perangkat keras terkelola dengan standar dokumentasi resmi dan akuntabilitas penuh.',
+      aboutDescription:
+        'Berdiri di kawasan bisnis SCBD Jakarta, kami membantu perusahaan skala menengah hingga enterprise menyatukan infrastruktur teknologi, kepatuhan administrasi, serta siklus penagihan dan serah terima aset dalam satu ekosistem terukur.',
+      vision:
+        'Menjadi mitra teknologi dan operasional terpercaya bagi korporasi Indonesia melalui rekayasa sistem yang transparan, aman, dan berkelanjutan.',
+      foundedYear: '2019',
+      city: 'Jakarta Selatan',
+      heroCtaLabel: 'Masuk Portal Karyawan',
+      heroImageDataUrl: '',
+      aboutImageDataUrl: '',
+      portfolioImageDataUrl: '',
+      pillars: [
+        {
+          title: 'Sistem Penagihan & Rekonsiliasi Pembayaran',
+          description:
+            'Penerbitan faktur resmi, jadwal penagihan bulanan otomatis, serta pembayaran QRIS dan Virtual Account dengan pembaruan status transaksi secara langsung.',
+        },
+        {
+          title: 'Administrasi SDM, Kontrak & BAST Berbarcode',
+          description:
+            'Pengelolaan kontrak PKWT, SK pengangkatan, penggajian PPh 21, dan Berita Acara Serah Terima Barang (BAST) yang seluruhnya dilengkapi verifikasi QR dan Code 128B.',
+        },
+      ],
+      caseStudies: [
+        {
+          sector: 'Logistik & Distribusi Nasional',
+          title: 'Otomatisasi Penagihan & Rekonsiliasi Multi-Cabang',
+          metric: '38% lebih cepat dalam rekonsiliasi bulanan',
+          detail:
+            'Menyatukan 140+ faktur langganan bulanan dengan kanal pembayaran Virtual Account dan notifikasi pelunasan otomatis.',
+        },
+        {
+          sector: 'Ritel & Infrastruktur Perangkat',
+          title: 'Digitalisasi Serah Terima Aset & Kontrak Karyawan',
+          metric: '100% dokumen BAST & SK terverifikasi barcode',
+          detail:
+            'Setiap pengiriman perangkat dan surat pengangkatan tercatat dalam arsip resmi dengan kode verifikasi QR dan sidik jari SHA-256.',
+        },
+      ],
+      showServicesSection: true,
+      showPortfolioSection: true,
+      showVerifySection: true,
+      showContactSection: true,
+      footerNote: 'Portal Internal & Verifikasi Dokumen Resmi',
     });
   }
 

@@ -1446,7 +1446,7 @@ export default function App() {
     return (
       <LoginView
         onLogin={handleLogin}
-        onOpenVerify={() => setPublicVerifyCode('')}
+        onOpenVerify={(code) => setPublicVerifyCode(code ?? '')}
       />
     );
   }

@@ -868,6 +868,195 @@ async function startServer() {
     });
   });
 
+  const publicInquiryLimiter = new Map<string, number>();
+
+  app.get('/api/public/company-profile', (_req, res) => {
+    const rawCompany = getSetting<CompanyInternalConfig>('company');
+    const activeProducts = (
+      db
+        .prepare(
+          'SELECT id, name, description, unit, unit_price FROM products WHERE active = 1 ORDER BY name ASC LIMIT 6'
+        )
+        .all() as Array<Record<string, unknown>>
+    ).map((row) => ({
+      id: String(row.id || ''),
+      name: String(row.name || ''),
+      description: String(row.description || ''),
+      unit: String(row.unit || 'Unit'),
+      unitPrice: Number(row.unit_price || 0),
+    }));
+
+    const clientCount = (
+      db.prepare('SELECT COUNT(*) as count FROM clients').get() as { count: number }
+    ).count;
+    const contractCount = (
+      db
+        .prepare("SELECT COUNT(*) as count FROM employee_contracts WHERE status = 'active'")
+        .get() as { count: number }
+    ).count;
+    const handoverCount = (
+      db
+        .prepare("SELECT COUNT(*) as count FROM goods_handovers WHERE status != 'draft'")
+        .get() as { count: number }
+    ).count;
+    const totalProductCount = (
+      db.prepare('SELECT COUNT(*) as count FROM products WHERE active = 1').get() as {
+        count: number;
+      }
+    ).count;
+
+    const defaultPillars = [
+      {
+        title: 'Sistem Penagihan & Rekonsiliasi Pembayaran',
+        description:
+          'Penerbitan faktur resmi, jadwal penagihan bulanan otomatis, serta pembayaran QRIS dan Virtual Account dengan pembaruan status transaksi secara langsung.',
+      },
+      {
+        title: 'Administrasi SDM, Kontrak & BAST Berbarcode',
+        description:
+          'Pengelolaan kontrak PKWT, SK pengangkatan, penggajian PPh 21, dan Berita Acara Serah Terima Barang (BAST) yang seluruhnya dilengkapi verifikasi QR dan Code 128B.',
+      },
+    ];
+
+    const defaultCaseStudies = [
+      {
+        sector: 'Logistik & Distribusi Nasional',
+        title: 'Otomatisasi Penagihan & Rekonsiliasi Multi-Cabang',
+        metric: '38% lebih cepat dalam rekonsiliasi bulanan',
+        detail:
+          'Menyatukan 140+ faktur langganan bulanan dengan kanal pembayaran Virtual Account dan notifikasi pelunasan otomatis.',
+      },
+      {
+        sector: 'Ritel & Infrastruktur Perangkat',
+        title: 'Digitalisasi Serah Terima Aset & Kontrak Karyawan',
+        metric: '100% dokumen BAST & SK terverifikasi barcode',
+        detail:
+          'Setiap pengiriman perangkat dan surat pengangkatan tercatat dalam arsip resmi dengan kode verifikasi QR dan sidik jari SHA-256.',
+      },
+    ];
+
+    res.json({
+      ok: true,
+      company: {
+        name: rawCompany?.name || 'PT Nusantara Digital Karya',
+        email: rawCompany?.email || 'finance@nusantarakarya.co.id',
+        phone: rawCompany?.phone || '+62 21 5082 4190',
+        address:
+          rawCompany?.address ||
+          'Gedung Treasury Tower Lt. 18, SCBD Lot 28, Jakarta Selatan 12190',
+        logoDataUrl: rawCompany?.logoDataUrl || '',
+        tagline:
+          rawCompany?.tagline ||
+          'Solusi Infrastruktur Digital, Sistem Keuangan & Pengadaan Korporasi',
+        heroTitle:
+          rawCompany?.heroTitle ||
+          'Mitra Strategis Infrastruktur Digital & Tata Kelola Bisnis Modern',
+        heroSubtitle:
+          rawCompany?.heroSubtitle ||
+          'Kami merancang sistem cloud, integrasi pembayaran korporasi, serta penyediaan perangkat keras terkelola dengan standar dokumentasi resmi dan akuntabilitas penuh.',
+        heroCtaLabel: rawCompany?.heroCtaLabel || 'Masuk Portal Karyawan',
+        heroImageDataUrl: rawCompany?.heroImageDataUrl || '',
+        aboutDescription:
+          rawCompany?.aboutDescription ||
+          'Berdiri di kawasan bisnis SCBD Jakarta, kami membantu perusahaan skala menengah hingga enterprise menyatukan infrastruktur teknologi, kepatuhan administrasi, serta siklus penagihan dan serah terima aset dalam satu ekosistem terukur.',
+        aboutImageDataUrl: rawCompany?.aboutImageDataUrl || '',
+        vision:
+          rawCompany?.vision ||
+          'Menjadi mitra teknologi dan operasional terpercaya bagi korporasi Indonesia melalui rekayasa sistem yang transparan, aman, dan berkelanjutan.',
+        foundedYear: rawCompany?.foundedYear || '2019',
+        city: rawCompany?.city || 'Jakarta Selatan',
+        portfolioImageDataUrl: rawCompany?.portfolioImageDataUrl || '',
+        pillars:
+          Array.isArray(rawCompany?.pillars) && rawCompany.pillars.length > 0
+            ? rawCompany.pillars
+            : defaultPillars,
+        caseStudies:
+          Array.isArray(rawCompany?.caseStudies) && rawCompany.caseStudies.length > 0
+            ? rawCompany.caseStudies
+            : defaultCaseStudies,
+        showServicesSection: rawCompany?.showServicesSection !== false,
+        showPortfolioSection: rawCompany?.showPortfolioSection !== false,
+        showVerifySection: rawCompany?.showVerifySection !== false,
+        showContactSection: rawCompany?.showContactSection !== false,
+        footerNote: rawCompany?.footerNote || 'Portal Internal & Verifikasi Dokumen Resmi',
+      },
+      services: activeProducts,
+      highlights: {
+        activeServicesCount: totalProductCount,
+        verifiedClientsCount: clientCount,
+        issuedDocumentsCount: contractCount + handoverCount,
+      },
+    });
+  });
+
+  app.post('/api/public/contact', (req, res) => {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const lastTs = publicInquiryLimiter.get(clientIp) || 0;
+    const nowMs = Date.now();
+    if (nowMs - lastTs < 15_000) {
+      res.status(429).json({
+        ok: false,
+        message: 'Mohon tunggu beberapa detik sebelum mengirim pesan konsultasi kembali.',
+      });
+      return;
+    }
+
+    const fullName = String(req.body?.fullName || '').trim().slice(0, 120);
+    const companyName = String(req.body?.companyName || '').trim().slice(0, 160);
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 160);
+    const phone = String(req.body?.phone || '').trim().slice(0, 40);
+    const subject = String(req.body?.subject || 'Permintaan Penawaran & Konsultasi')
+      .trim()
+      .slice(0, 160);
+    const message = String(req.body?.message || '').trim().slice(0, 2000);
+
+    if (fullName.length < 2 || message.length < 10) {
+      res.status(400).json({
+        ok: false,
+        message: 'Nama lengkap (min. 2 karakter) dan rincian kebutuhan (min. 10 karakter) wajib diisi.',
+      });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({
+        ok: false,
+        message: 'Format alamat email kerja tidak valid.',
+      });
+      return;
+    }
+
+    const id = `inq-${crypto.randomUUID().slice(0, 8)}`;
+    const nowIso = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO contact_inquiries
+       (id, full_name, company_name, email, phone, subject, message, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, fullName, companyName, email, phone, subject, message, 'new', nowIso);
+
+    publicInquiryLimiter.set(clientIp, nowMs);
+    if (publicInquiryLimiter.size > 500) {
+      publicInquiryLimiter.clear();
+    }
+
+    createAndBroadcastNotification({
+      invoiceId: '',
+      invoiceNumber: companyName || fullName,
+      title: `Permintaan Konsultasi Baru: ${fullName}`,
+      message: `${companyName ? `${companyName} · ` : ''}${email} — ${subject}`,
+      status: 'unread',
+      amount: 0,
+      channel: 'system',
+    });
+
+    res.json({
+      ok: true,
+      inquiryId: id,
+      message:
+        'Terima kasih. Permintaan Anda telah tercatat dan tim kami akan menghubungi Anda melalui email atau telepon kerja.',
+    });
+  });
+
   app.post('/api/auth/login', (req, res) => {
     const identifier = String(req.body?.identifier || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
@@ -2627,7 +2816,90 @@ async function startServer() {
   app.put('/api/settings/company', requireAuth, requireRole('admin'), (req, res) => {
     const existing = getSetting<CompanyInternalConfig>('company')!;
     const body = req.body as Partial<CompanyInternalConfig>;
-    setSetting('company', { ...existing, ...body });
+    const pickText = (val: unknown, fallback: string, maxLen = 500) =>
+      typeof val === 'string' ? val.trim().slice(0, maxLen) : fallback;
+    const pickImage = (val: unknown, fallback: string, maxLen = 700_000) => {
+      if (typeof val !== 'string') return fallback;
+      const trimmed = val.trim();
+      if (trimmed === '') return '';
+      if (/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(trimmed)) {
+        return trimmed.slice(0, maxLen);
+      }
+      return fallback;
+    };
+
+    const sanitizedPillars = Array.isArray(body.pillars)
+      ? body.pillars
+          .slice(0, 6)
+          .map((p) => ({
+            title: String(p?.title || '').trim().slice(0, 140),
+            description: String(p?.description || '').trim().slice(0, 500),
+          }))
+          .filter((p) => p.title.length > 0)
+      : existing.pillars || [];
+
+    const sanitizedCaseStudies = Array.isArray(body.caseStudies)
+      ? body.caseStudies
+          .slice(0, 6)
+          .map((cs) => ({
+            sector: String(cs?.sector || '').trim().slice(0, 100),
+            title: String(cs?.title || '').trim().slice(0, 160),
+            metric: String(cs?.metric || '').trim().slice(0, 120),
+            detail: String(cs?.detail || '').trim().slice(0, 500),
+          }))
+          .filter((cs) => cs.title.length > 0)
+      : existing.caseStudies || [];
+
+    const updated: CompanyInternalConfig = {
+      name: pickText(body.name, existing.name, 160) || existing.name,
+      email: pickText(body.email, existing.email, 160),
+      phone: pickText(body.phone, existing.phone, 60),
+      address: pickText(body.address, existing.address, 300),
+      npwp: pickText(body.npwp, existing.npwp, 60),
+      bankName: pickText(body.bankName, existing.bankName, 120),
+      bankAccountNumber: pickText(body.bankAccountNumber, existing.bankAccountNumber, 80),
+      bankAccountName: pickText(body.bankAccountName, existing.bankAccountName, 160),
+      logoDataUrl: pickImage(body.logoDataUrl, existing.logoDataUrl || '', 512_000),
+      tagline: pickText(body.tagline, existing.tagline || '', 240),
+      heroTitle: pickText(body.heroTitle, existing.heroTitle || '', 240),
+      heroSubtitle: pickText(body.heroSubtitle, existing.heroSubtitle || '', 600),
+      heroCtaLabel: pickText(body.heroCtaLabel, existing.heroCtaLabel || 'Masuk Portal Karyawan', 60),
+      heroImageDataUrl: pickImage(body.heroImageDataUrl, existing.heroImageDataUrl || ''),
+      aboutDescription: pickText(body.aboutDescription, existing.aboutDescription || '', 1200),
+      aboutImageDataUrl: pickImage(body.aboutImageDataUrl, existing.aboutImageDataUrl || ''),
+      vision: pickText(body.vision, existing.vision || '', 600),
+      foundedYear: pickText(body.foundedYear, existing.foundedYear || '2019', 16),
+      city: pickText(body.city, existing.city || 'Jakarta Selatan', 100),
+      portfolioImageDataUrl: pickImage(
+        body.portfolioImageDataUrl,
+        existing.portfolioImageDataUrl || ''
+      ),
+      pillars: sanitizedPillars,
+      caseStudies: sanitizedCaseStudies,
+      showServicesSection:
+        typeof body.showServicesSection === 'boolean'
+          ? body.showServicesSection
+          : existing.showServicesSection !== false,
+      showPortfolioSection:
+        typeof body.showPortfolioSection === 'boolean'
+          ? body.showPortfolioSection
+          : existing.showPortfolioSection !== false,
+      showVerifySection:
+        typeof body.showVerifySection === 'boolean'
+          ? body.showVerifySection
+          : existing.showVerifySection !== false,
+      showContactSection:
+        typeof body.showContactSection === 'boolean'
+          ? body.showContactSection
+          : existing.showContactSection !== false,
+      footerNote: pickText(
+        body.footerNote,
+        existing.footerNote || 'Portal Internal & Verifikasi Dokumen Resmi',
+        160
+      ),
+    };
+
+    setSetting('company', updated);
     res.json({ ok: true, settings: buildPublicSettings(req.get('host')) });
   });
 

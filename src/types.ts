@@ -127,6 +127,18 @@ export interface SmtpSettingsPublic {
   autoMonthlyEnabled: boolean;
 }
 
+export interface CompanyProfilePillar {
+  title: string;
+  description: string;
+}
+
+export interface CompanyProfileCaseStudy {
+  sector: string;
+  title: string;
+  metric: string;
+  detail: string;
+}
+
 export interface CompanyProfile {
   name: string;
   email: string;
@@ -137,6 +149,64 @@ export interface CompanyProfile {
   bankAccountNumber: string;
   bankAccountName: string;
   logoDataUrl?: string;
+  tagline?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  heroCtaLabel?: string;
+  heroImageDataUrl?: string;
+  aboutDescription?: string;
+  aboutImageDataUrl?: string;
+  vision?: string;
+  foundedYear?: string;
+  city?: string;
+  portfolioImageDataUrl?: string;
+  pillars?: CompanyProfilePillar[];
+  caseStudies?: CompanyProfileCaseStudy[];
+  showServicesSection?: boolean;
+  showPortfolioSection?: boolean;
+  showVerifySection?: boolean;
+  showContactSection?: boolean;
+  footerNote?: string;
+}
+
+export interface PublicCompanyProfilePayload {
+  company: {
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    logoDataUrl?: string;
+    tagline: string;
+    heroTitle: string;
+    heroSubtitle: string;
+    heroCtaLabel: string;
+    heroImageDataUrl?: string;
+    aboutDescription: string;
+    aboutImageDataUrl?: string;
+    vision: string;
+    foundedYear: string;
+    city: string;
+    portfolioImageDataUrl?: string;
+    pillars: CompanyProfilePillar[];
+    caseStudies: CompanyProfileCaseStudy[];
+    showServicesSection: boolean;
+    showPortfolioSection: boolean;
+    showVerifySection: boolean;
+    showContactSection: boolean;
+    footerNote: string;
+  };
+  services: Array<{
+    id: string;
+    name: string;
+    description: string;
+    unit: string;
+    unitPrice: number;
+  }>;
+  highlights: {
+    activeServicesCount: number;
+    verifiedClientsCount: number;
+    issuedDocumentsCount: number;
+  };
 }
 
 export interface AppSettingsPublic {
