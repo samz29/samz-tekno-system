@@ -61,6 +61,7 @@ import {
   PAYROLL_STATUS_META,
 } from './lib/formatters';
 import { generatePayslipPdf } from './lib/payslipPdf';
+import { syncDocumentFavicon } from './lib/favicon';
 import {
   type AppTab,
   ROLE_META,
@@ -412,6 +413,12 @@ export default function App() {
       void fetchBootstrap(true);
     }
   }, [currentUserId, authToken, authChecking, fetchBootstrap]);
+
+  useEffect(() => {
+    if (currentUser) {
+      syncDocumentFavicon(settings.company.logoDataUrl);
+    }
+  }, [currentUser, settings.company.logoDataUrl]);
 
   const handleLogin = useCallback(
     async (identifier: string, password: string): Promise<{ ok: boolean; message?: string }> => {
@@ -1491,9 +1498,16 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab(getDefaultTabForRole(userRole))}
-            className="text-lg font-bold tracking-tight text-[#E5C158] whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2.5 text-lg font-bold tracking-tight text-[#E5C158] whitespace-nowrap shrink-0"
           >
-            FakturaFlow
+            {settings.company.logoDataUrl && (
+              <img
+                src={settings.company.logoDataUrl}
+                alt={settings.company.name}
+                className="h-6 w-6 rounded bg-zinc-900 border border-[#D4AF37]/40 object-contain p-0.5 shrink-0"
+              />
+            )}
+            <span>FakturaFlow</span>
           </button>
           <button
             type="button"

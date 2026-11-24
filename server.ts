@@ -998,6 +998,43 @@ async function startServer() {
     });
   });
 
+  const sendUploadedCompanyLogoIfPresent = (res: express.Response): boolean => {
+    const rawCompany = getSetting<CompanyInternalConfig>('company');
+    const logoDataUrl = String(rawCompany?.logoDataUrl || '').trim();
+    const match = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(
+      logoDataUrl
+    );
+    if (!match) return false;
+    const mime = match[1] === 'image/jpg' ? 'image/jpeg' : match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    res.send(buffer);
+    return true;
+  };
+
+  app.get('/api/public/company-logo', (_req, res) => {
+    if (sendUploadedCompanyLogoIfPresent(res)) return;
+    const fallbackCandidates = [
+      path.join(appRoot, 'public', 'pwa-192x192.png'),
+      path.join(appRoot, 'dist', 'pwa-192x192.png'),
+    ];
+    for (const filePath of fallbackCandidates) {
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        res.sendFile(filePath);
+        return;
+      }
+    }
+    res.status(404).type('text/plain').send('Logo not found');
+  });
+
+  app.get(['/favicon.ico', '/apple-touch-icon.png', '/pwa-192x192.png'], (_req, res, next) => {
+    if (sendUploadedCompanyLogoIfPresent(res)) return;
+    next();
+  });
+
   app.post('/api/public/contact', (req, res) => {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const lastTs = publicInquiryLimiter.get(clientIp) || 0;

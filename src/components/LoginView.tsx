@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { CompanyProfile, PublicCompanyProfilePayload } from '../types';
 import { formatIdr } from '../lib/formatters';
+import { syncDocumentFavicon } from '../lib/favicon';
 import { buildWhatsAppUrl, normalizeWhatsAppNumber } from '../lib/whatsapp';
 import heroCorporateImg from '../assets/images/hero_corporate_hq_1795443793076.jpg';
 import operationsTeamImg from '../assets/images/bento_operations_team_1795443793200.jpg';
@@ -251,6 +252,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           highlights: data.highlights || DEFAULT_PROFILE.highlights,
         });
         setWaDraftMessage(merged.whatsappDefaultMessage);
+        syncDocumentFavicon(merged.logoDataUrl);
       })
       .catch(() => {
         // Keep defaults when offline
