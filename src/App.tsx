@@ -1436,7 +1436,7 @@ export default function App() {
 
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-sm text-slate-600">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-sm text-zinc-300">
         Memverifikasi sesi pengguna...
       </div>
     );
@@ -1483,22 +1483,22 @@ export default function App() {
 
       {/* Left Sidebar (260px) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[260px] bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[260px] bg-zinc-950 text-zinc-100 flex flex-col border-r border-zinc-800 transition-transform duration-200 lg:static lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-zinc-800">
           <button
             type="button"
             onClick={() => setActiveTab(getDefaultTabForRole(userRole))}
-            className="text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0"
+            className="text-lg font-bold tracking-tight text-[#E5C158] whitespace-nowrap shrink-0"
           >
             FakturaFlow
           </button>
           <button
             type="button"
             onClick={() => setMobileMenuOpen(false)}
-            className="lg:hidden text-slate-400 hover:text-white"
+            className="lg:hidden text-zinc-400 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1518,8 +1518,8 @@ export default function App() {
                 }}
                 className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
                   active
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
+                    ? 'bg-zinc-900 text-[#E5C158] border border-[#D4AF37]/30'
+                    : 'text-zinc-400 hover:bg-zinc-900/70 hover:text-zinc-100 border border-transparent'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -1530,18 +1530,18 @@ export default function App() {
         </nav>
 
         {/* Active User Role & Logout */}
-        <div className="p-4 border-t border-slate-800 space-y-3">
-          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 flex items-center justify-between gap-2">
+        <div className="p-4 border-t border-zinc-800 space-y-3">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-3 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <div className="text-xs font-semibold text-white truncate">{currentUser.name}</div>
-              <div className="text-[11px] text-blue-400 font-medium truncate">
+              <div className="text-[11px] text-[#E5C158] font-medium truncate">
                 {ROLE_META[userRole].label} · @{currentUser.username}
               </div>
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors shrink-0"
+              className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-[#E5C158] transition-colors shrink-0"
               title="Keluar dari Sesi"
               aria-label="Keluar"
             >
@@ -1594,7 +1594,7 @@ export default function App() {
               >
                 <Bell className="w-4 h-4" />
                 {unreadNotifCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-700 px-1 text-[10px] font-semibold text-white font-mono">
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-950 px-1 text-[10px] font-semibold text-[#E5C158] font-mono">
                     {unreadNotifCount}
                   </span>
                 )}

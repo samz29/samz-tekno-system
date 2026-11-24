@@ -279,7 +279,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
     if (previewCompany) {
       setContactResult({
         ok: true,
-        message: 'Mode pratinjau aktif — formulir siap menerima pertanyaan calon klien di halaman publik.',
+        message:
+          'Mode pratinjau aktif — formulir siap menerima pertanyaan calon klien di halaman publik.',
       });
       return;
     }
@@ -359,14 +360,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
   ].filter((item) => item.visible);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {onExitPreview && (
-        <div className="bg-slate-900 text-white px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 text-xs">
+        <div className="bg-[#D4AF37] text-zinc-950 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 text-xs font-medium">
           <span>Mode Pratinjau Website Company Profile (berdasarkan perubahan di Pengaturan)</span>
           <button
             type="button"
             onClick={onExitPreview}
-            className="rounded-md bg-white px-3 py-1.5 font-medium text-slate-900 hover:bg-slate-100 whitespace-nowrap shrink-0"
+            className="rounded-md bg-zinc-950 px-3 py-1.5 font-medium text-[#E5C158] hover:bg-zinc-900 whitespace-nowrap shrink-0"
           >
             Kembali ke Pengaturan
           </button>
@@ -374,23 +375,23 @@ export const LoginView: React.FC<LoginViewProps> = ({
       )}
 
       {/* Top Navigation Bar — 3-Zone Contract */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+      <header className="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
         <div className="max-w-6xl mx-auto h-16 px-4 sm:px-6 flex items-center justify-between gap-8">
           {/* Zone 1: Single text element wordmark */}
           <a
             href="#beranda"
-            className="text-base sm:text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 truncate max-w-[220px] sm:max-w-none"
+            className="text-base sm:text-lg font-bold tracking-tight text-zinc-50 hover:text-[#E5C158] transition-colors whitespace-nowrap shrink-0 truncate max-w-[220px] sm:max-w-none"
           >
             {company.name}
           </a>
 
           {/* Zone 2: 4-5 concise single-line nav links */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
             {navLinks.map((nav) => (
               <a
                 key={nav.href}
                 href={nav.href}
-                className="hover:text-slate-900 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+                className="hover:text-[#E5C158] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
               >
                 {nav.label}
               </a>
@@ -402,7 +403,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <button
               type="button"
               onClick={() => setMobileNavOpen((prev) => !prev)}
-              className="md:hidden inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-100"
+              className="md:hidden inline-flex items-center justify-center rounded-lg border border-zinc-800 p-2 text-zinc-200 hover:bg-zinc-900"
               aria-label="Menu navigasi"
             >
               {mobileNavOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -416,7 +417,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   setLoginModalOpen(true);
                 }
               }}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-medium text-white hover:bg-blue-800 transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-[#E5C158] transition-colors whitespace-nowrap shrink-0"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>{onExitPreview ? 'Tutup Pratinjau' : 'Masuk Portal'}</span>
@@ -426,13 +427,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
         {/* Mobile Nav Drawer */}
         {mobileNavOpen && (
-          <nav className="md:hidden border-t border-slate-200 bg-white px-4 py-3 flex flex-col gap-2 text-sm font-medium text-slate-700">
+          <nav className="md:hidden border-t border-zinc-800 bg-zinc-950 px-4 py-3 flex flex-col gap-2 text-sm font-medium text-zinc-300">
             {navLinks.map((nav) => (
               <a
                 key={nav.href}
                 href={nav.href}
                 onClick={() => setMobileNavOpen(false)}
-                className="py-1.5 hover:text-slate-900"
+                className="py-1.5 hover:text-[#E5C158]"
               >
                 {nav.label}
               </a>
@@ -443,25 +444,27 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
       <main>
         {/* 1. Hero Section */}
-        <section id="beranda" className="bg-white border-b border-slate-200">
+        <section id="beranda" className="bg-zinc-950 border-b border-zinc-800">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 lg:py-16">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
               {/* Hero Left Column */}
               <div className="lg:col-span-6 flex flex-col justify-between gap-8">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span>{company.city || 'Jakarta Selatan'}</span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                    <span className="text-[#E5C158] font-medium">
+                      {company.city || 'Jakarta Selatan'}
+                    </span>
                     <span aria-hidden="true">·</span>
                     <span className="tabular-nums">Berdiri {company.foundedYear || '2019'}</span>
                     <span aria-hidden="true">·</span>
                     <span>{company.tagline}</span>
                   </div>
 
-                  <h1 className="mt-4 text-[clamp(2.125rem,3.6vw,3.25rem)] font-bold tracking-tight text-slate-900 leading-[1.12] text-balance">
+                  <h1 className="mt-4 text-[clamp(2.125rem,3.6vw,3.25rem)] font-bold tracking-tight text-zinc-50 leading-[1.12] text-balance">
                     {company.heroTitle}
                   </h1>
 
-                  <p className="mt-5 text-base text-slate-600 leading-relaxed max-w-xl">
+                  <p className="mt-5 text-base text-zinc-300 leading-relaxed max-w-xl tracking-[0.01em]">
                     {company.heroSubtitle}
                   </p>
                 </div>
@@ -470,7 +473,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setLoginModalOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-3 text-sm font-medium text-white hover:bg-blue-800 transition-colors whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-[#E5C158] transition-colors whitespace-nowrap shrink-0"
                   >
                     <LogIn className="w-4 h-4" />
                     <span>{company.heroCtaLabel || 'Masuk Portal Karyawan'}</span>
@@ -478,10 +481,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   {company.showContactSection && (
                     <a
                       href="#kontak"
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0"
+                      className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3 text-sm font-medium text-zinc-100 hover:border-[#D4AF37]/60 hover:text-[#E5C158] transition-colors whitespace-nowrap shrink-0"
                     >
                       <span>Jadwalkan Konsultasi</span>
-                      <ArrowRight className="w-4 h-4 text-slate-500" />
+                      <ArrowRight className="w-4 h-4" />
                     </a>
                   )}
                 </div>
@@ -489,7 +492,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
               {/* Hero Right Column — Full-Height 16:9 Architectural Photography */}
               <div className="lg:col-span-6">
-                <div className="h-72 sm:h-96 lg:h-full min-h-[320px] rounded-2xl border border-slate-200 bg-slate-900 overflow-hidden relative">
+                <div className="h-72 sm:h-96 lg:h-full min-h-[320px] rounded-2xl border border-[#D4AF37]/30 bg-zinc-900 overflow-hidden relative">
                   {!heroImgFailed ? (
                     <img
                       src={heroSrc}
@@ -499,10 +502,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 flex flex-col items-center justify-center p-8 text-center text-slate-200">
-                      <Building2 className="w-10 h-10 text-blue-400 mb-3" />
+                    <div className="w-full h-full bg-gradient-to-br from-zinc-950 via-zinc-900 to-[#1f1909] flex flex-col items-center justify-center p-8 text-center text-zinc-200">
+                      <Building2 className="w-10 h-10 text-[#E5C158] mb-3" />
                       <p className="text-sm font-semibold">{company.name}</p>
-                      <p className="text-xs text-slate-400 mt-1">{company.city}</p>
+                      <p className="text-xs text-zinc-400 mt-1">{company.city}</p>
                     </div>
                   )}
                 </div>
@@ -510,28 +513,28 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </div>
 
             {/* Full-Width 4-Column Corporate Highlights Strip */}
-            <div className="mt-10 rounded-xl border border-slate-200 bg-slate-50 grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+            <div className="mt-10 rounded-xl border border-zinc-800 bg-zinc-900/70 grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-zinc-800">
               <div className="p-5">
-                <span className="text-xs text-slate-500 block">Tahun Pendirian</span>
-                <span className="mt-1 block text-xl font-bold text-slate-900 tabular-nums">
+                <span className="text-xs text-zinc-400 block">Tahun Pendirian</span>
+                <span className="mt-1 block text-xl font-bold text-[#E5C158] tabular-nums">
                   {company.foundedYear || '2019'}
                 </span>
               </div>
               <div className="p-5">
-                <span className="text-xs text-slate-500 block">Layanan &amp; Solusi Aktif</span>
-                <span className="mt-1 block text-xl font-bold text-slate-900 tabular-nums">
+                <span className="text-xs text-zinc-400 block">Layanan &amp; Solusi Aktif</span>
+                <span className="mt-1 block text-xl font-bold text-[#E5C158] tabular-nums">
                   {highlights.activeServicesCount}+ Modul
                 </span>
               </div>
               <div className="p-5">
-                <span className="text-xs text-slate-500 block">Klien Korporasi Terdaftar</span>
-                <span className="mt-1 block text-xl font-bold text-slate-900 tabular-nums">
+                <span className="text-xs text-zinc-400 block">Klien Korporasi Terdaftar</span>
+                <span className="mt-1 block text-xl font-bold text-[#E5C158] tabular-nums">
                   {highlights.verifiedClientsCount}+ Perusahaan
                 </span>
               </div>
               <div className="p-5">
-                <span className="text-xs text-slate-500 block">Arsip SK &amp; BAST Terbit</span>
-                <span className="mt-1 block text-xl font-bold text-slate-900 tabular-nums">
+                <span className="text-xs text-zinc-400 block">Arsip SK &amp; BAST Terbit</span>
+                <span className="mt-1 block text-xl font-bold text-[#E5C158] tabular-nums">
                   {highlights.issuedDocumentsCount}+ Dokumen
                 </span>
               </div>
@@ -542,8 +545,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
         {/* 2. Tentang Perusahaan & Katalog Layanan (Asymmetric Bento Grid) */}
         <section id="tentang" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 space-y-10">
           <div className="max-w-2xl">
-            <span className="text-xs font-medium text-blue-700">Tentang &amp; Kapabilitas</span>
-            <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 text-balance">
+            <span className="text-xs font-medium text-[#E5C158]">Tentang &amp; Kapabilitas</span>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 text-balance">
               Tata Kelola Teknologi dan Operasional yang Terukur
             </h2>
           </div>
@@ -553,9 +556,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <div
               className={`${
                 company.showServicesSection ? 'lg:col-span-7' : 'lg:col-span-12'
-              } rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col`}
+              } rounded-2xl border border-zinc-800 bg-zinc-900/80 overflow-hidden flex flex-col`}
             >
-              <div className="h-64 sm:h-72 bg-slate-100 border-b border-slate-200 overflow-hidden">
+              <div className="h-64 sm:h-72 bg-zinc-900 border-b border-zinc-800 overflow-hidden">
                 {!opsImgFailed ? (
                   <img
                     src={opsSrc}
@@ -565,7 +568,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-300 text-sm">
+                  <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-300 text-sm">
                     Tim Operasional &amp; Rekayasa {company.name}
                   </div>
                 )}
@@ -573,41 +576,43 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
               <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-900">
+                  <h3 className="text-lg font-semibold text-zinc-50">
                     Profil Perusahaan &amp; Komitmen Layanan
                   </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
+                  <p className="text-sm text-zinc-300 leading-relaxed">
                     {company.aboutDescription}
                   </p>
                 </div>
 
-                <div className="pt-5 border-t border-slate-200">
-                  <span className="text-xs font-semibold text-slate-900 block">Visi Perusahaan</span>
-                  <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{company.vision}</p>
+                <div className="pt-5 border-t border-zinc-800">
+                  <span className="text-xs font-semibold text-[#E5C158] block">
+                    Visi Perusahaan
+                  </span>
+                  <p className="mt-1.5 text-sm text-zinc-300 leading-relaxed">{company.vision}</p>
                 </div>
               </div>
             </div>
 
             {/* Asymmetric Right Bento Card: Live Service Catalog */}
             {company.showServicesSection && (
-              <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 flex flex-col justify-between">
+              <div className="lg:col-span-5 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-8 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
+                  <h3 className="text-lg font-semibold text-zinc-50">
                     Katalog Layanan &amp; Solusi
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-zinc-400 mt-1">
                     Layanan aktif yang dikelola langsung oleh tim profesional kami.
                   </p>
 
-                  <div className="mt-6 divide-y divide-slate-200">
+                  <div className="mt-6 divide-y divide-zinc-800">
                     {services.slice(0, 4).map((srv, idx) => (
                       <div key={srv.id} className="py-4 first:pt-0 last:pb-0">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <h4 className="text-sm font-semibold text-slate-900">
+                            <h4 className="text-sm font-semibold text-zinc-100">
                               0{idx + 1}. {srv.name}
                             </h4>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
                               {srv.description}
                             </p>
                           </div>
@@ -615,13 +620,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleSelectServiceForInquiry(srv.name)}
-                              className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap shrink-0 mt-0.5"
+                              className="text-xs font-medium text-[#E5C158] hover:underline whitespace-nowrap shrink-0 mt-0.5"
                             >
                               Minta Penawaran
                             </button>
                           )}
                         </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 font-mono tabular-nums">
+                        <div className="mt-2 flex items-center gap-2 text-xs text-[#D4AF37] font-mono tabular-nums">
                           <span>{formatIdr(srv.unitPrice)}</span>
                           <span aria-hidden="true">/</span>
                           <span>{srv.unit}</span>
@@ -632,11 +637,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 </div>
 
                 {company.showContactSection && (
-                  <div className="mt-6 pt-5 border-t border-slate-200 flex items-center justify-between gap-4 text-xs text-slate-500">
+                  <div className="mt-6 pt-5 border-t border-zinc-800 flex items-center justify-between gap-4 text-xs text-zinc-400">
                     <span>Konsultasi penyesuaian ruang lingkup tersedia</span>
                     <a
                       href="#kontak"
-                      className="font-medium text-blue-700 hover:underline whitespace-nowrap shrink-0"
+                      className="font-medium text-[#E5C158] hover:underline whitespace-nowrap shrink-0"
                     >
                       Hubungi Tim
                     </a>
@@ -649,12 +654,15 @@ export const LoginView: React.FC<LoginViewProps> = ({
             {company.pillars.map((pillar, idx) => (
               <div
                 key={`${pillar.title}-${idx}`}
-                className="lg:col-span-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-7"
+                className="lg:col-span-6 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-7"
               >
-                <h3 className="text-base font-semibold text-slate-900">
-                  {String(idx + 1).padStart(2, '0')}. {pillar.title}
+                <h3 className="text-base font-semibold text-zinc-50">
+                  <span className="text-[#E5C158] mr-1.5 font-mono">
+                    {String(idx + 1).padStart(2, '0')}.
+                  </span>
+                  {pillar.title}
                 </h3>
-                <p className="mt-2 text-sm text-slate-600 leading-relaxed">{pillar.description}</p>
+                <p className="mt-2 text-sm text-zinc-300 leading-relaxed">{pillar.description}</p>
               </div>
             ))}
           </div>
@@ -662,11 +670,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
         {/* 3. Portofolio & Bukti Dampak */}
         {company.showPortfolioSection && (
-          <section id="portofolio" className="bg-white border-y border-slate-200">
+          <section id="portofolio" className="bg-[#0D0D10] border-y border-zinc-800">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
                 <div className="lg:col-span-5">
-                  <div className="h-64 sm:h-80 lg:h-full rounded-2xl border border-slate-200 bg-slate-100 overflow-hidden">
+                  <div className="h-64 sm:h-80 lg:h-full rounded-2xl border border-[#D4AF37]/30 bg-zinc-900 overflow-hidden">
                     {!deliveryImgFailed ? (
                       <img
                         src={deliverySrc}
@@ -676,7 +684,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-slate-900 flex items-center justify-center text-slate-300 text-sm p-6 text-center">
+                      <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-300 text-sm p-6 text-center">
                         Dokumentasi Implementasi Infrastruktur &amp; BAST
                       </div>
                     )}
@@ -685,13 +693,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
                 <div className="lg:col-span-7 flex flex-col justify-between gap-6">
                   <div>
-                    <span className="text-xs font-medium text-blue-700">
+                    <span className="text-xs font-medium text-[#E5C158]">
                       Portofolio Implementasi
                     </span>
-                    <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 text-balance">
+                    <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 text-balance">
                       Rekam Jejak Eksekusi Proyek Korporasi
                     </h2>
-                    <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+                    <p className="mt-3 text-sm text-zinc-300 leading-relaxed">
                       Setiap implementasi disertai dokumentasi teknis, uji kelayakan, dan arsip
                       serah terima yang dapat diaudit secara mandiri oleh klien maupun tim internal.
                     </p>
@@ -701,16 +709,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     {company.caseStudies.map((cs, idx) => (
                       <div
                         key={`${cs.title}-${idx}`}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-5 flex flex-col justify-between gap-4"
+                        className="rounded-xl border border-zinc-800 bg-zinc-950 p-5 flex flex-col justify-between gap-4"
                       >
                         <div>
-                          <span className="text-xs text-slate-500 block">{cs.sector}</span>
-                          <h3 className="mt-1.5 text-base font-semibold text-slate-900">
+                          <span className="text-xs text-zinc-400 block">{cs.sector}</span>
+                          <h3 className="mt-1.5 text-base font-semibold text-zinc-50">
                             {cs.title}
                           </h3>
-                          <p className="mt-2 text-xs text-slate-600 leading-relaxed">{cs.detail}</p>
+                          <p className="mt-2 text-xs text-zinc-300 leading-relaxed">{cs.detail}</p>
                         </div>
-                        <div className="pt-3 border-t border-slate-200 text-xs font-semibold text-blue-700 tabular-nums">
+                        <div className="pt-3 border-t border-zinc-800 text-xs font-semibold text-[#E5C158] tabular-nums">
                           {cs.metric}
                         </div>
                       </div>
@@ -733,14 +741,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 } space-y-6`}
               >
                 {company.showVerifySection && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-7 space-y-4">
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-7 space-y-4">
                     <div className="flex items-center gap-2.5">
-                      <QrCode className="w-5 h-5 text-blue-700 shrink-0" />
-                      <h2 className="text-lg font-semibold text-slate-900">
+                      <QrCode className="w-5 h-5 text-[#E5C158] shrink-0" />
+                      <h2 className="text-lg font-semibold text-zinc-50">
                         Verifikasi Dokumen Resmi
                       </h2>
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
+                    <p className="text-xs text-zinc-300 leading-relaxed">
                       Periksa keaslian kontrak kerja (PKWT), Surat Keputusan Pengangkatan (SK), atau
                       Bukti Serah Terima Barang (BAST) yang diterbitkan {company.name}.
                     </p>
@@ -751,11 +759,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                         value={verifyCodeInput}
                         onChange={(e) => setVerifyCodeInput(e.target.value)}
                         placeholder="Contoh: FF-BAST-2026-8E4A21C9 atau FF-SK-..."
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-mono text-slate-900 focus:border-blue-600 focus:outline-none"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm font-mono text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                       />
                       <button
                         type="submit"
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-900 px-4 py-2.5 text-xs font-medium text-white hover:bg-slate-800 transition-colors whitespace-nowrap"
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/60 bg-zinc-950 px-4 py-2.5 text-xs font-semibold text-[#E5C158] hover:bg-[#D4AF37] hover:text-zinc-950 transition-colors whitespace-nowrap"
                       >
                         <QrCode className="w-4 h-4" />
                         <span>Periksa Keaslian Dokumen</span>
@@ -764,21 +772,21 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-7 space-y-4">
-                  <h3 className="text-base font-semibold text-slate-900">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-7 space-y-4">
+                  <h3 className="text-base font-semibold text-zinc-50">
                     Kantor Pusat &amp; Kontak
                   </h3>
-                  <div className="space-y-3 text-sm text-slate-600">
+                  <div className="space-y-3 text-sm text-zinc-300">
                     <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-1" />
+                      <MapPin className="w-4 h-4 text-[#E5C158] shrink-0 mt-1" />
                       <span className="leading-relaxed">{company.address}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+                      <Phone className="w-4 h-4 text-[#E5C158] shrink-0" />
                       <span className="tabular-nums">{company.phone}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                      <Mail className="w-4 h-4 text-[#E5C158] shrink-0" />
                       <span>{company.email}</span>
                     </div>
                   </div>
@@ -789,12 +797,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
               {company.showContactSection && (
                 <div
                   id="kontak"
-                  className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8"
+                  className="lg:col-span-7 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-8"
                 >
-                  <h2 className="text-xl font-bold text-slate-900">
+                  <h2 className="text-xl font-bold text-zinc-50">
                     Hubungi &amp; Konsultasi Proyek
                   </h2>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className="text-sm text-zinc-400 mt-1">
                     Kirimkan kebutuhan perusahaan Anda untuk mendapatkan estimasi ruang lingkup dan
                     penawaran resmi.
                   </p>
@@ -803,14 +811,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     <div
                       className={`mt-5 rounded-lg border p-3.5 text-xs flex items-start gap-2.5 ${
                         contactResult.ok
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                          : 'border-red-200 bg-red-50 text-red-900'
+                          ? 'border-emerald-700/60 bg-emerald-950/60 text-emerald-200'
+                          : 'border-red-700/60 bg-red-950/60 text-red-200'
                       }`}
                     >
                       {contactResult.ok ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                       ) : (
-                        <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                       )}
                       <span className="leading-relaxed">{contactResult.message}</span>
                     </div>
@@ -819,7 +827,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   <form onSubmit={handleContactSubmit} className="mt-6 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                           Nama Lengkap *
                         </label>
                         <input
@@ -828,11 +836,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                           value={contactFullName}
                           onChange={(e) => setContactFullName(e.target.value)}
                           placeholder="Contoh: Budi Santoso"
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                           Nama Perusahaan
                         </label>
                         <input
@@ -840,11 +848,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                           value={contactCompany}
                           onChange={(e) => setContactCompany(e.target.value)}
                           placeholder="PT Mitra Mandiri"
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                           Email Kerja *
                         </label>
                         <input
@@ -853,11 +861,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                           value={contactEmail}
                           onChange={(e) => setContactEmail(e.target.value)}
                           placeholder="nama@perusahaan.co.id"
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                           Nomor Telepon / WhatsApp
                         </label>
                         <input
@@ -865,25 +873,25 @@ export const LoginView: React.FC<LoginViewProps> = ({
                           value={contactPhone}
                           onChange={(e) => setContactPhone(e.target.value)}
                           placeholder="+62 812 0000 0000"
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                      <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                         Topik / Subjek
                       </label>
                       <input
                         type="text"
                         value={contactSubject}
                         onChange={(e) => setContactSubject(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                      <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                         Rincian Kebutuhan *
                       </label>
                       <textarea
@@ -892,7 +900,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                         value={contactMessage}
                         onChange={(e) => setContactMessage(e.target.value)}
                         placeholder="Jelaskan layanan, jumlah unit/pengguna, atau jadwal implementasi yang diharapkan..."
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                       />
                     </div>
 
@@ -900,7 +908,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       <button
                         type="submit"
                         disabled={contactSubmitting}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50 transition-colors whitespace-nowrap"
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-[#E5C158] disabled:opacity-50 transition-colors whitespace-nowrap"
                       >
                         <Send className="w-4 h-4" />
                         <span>
@@ -919,33 +927,33 @@ export const LoginView: React.FC<LoginViewProps> = ({
       </main>
 
       {/* Quiet Footer */}
-      <footer className="bg-slate-900 text-slate-300 border-t border-slate-800">
+      <footer className="bg-[#050507] text-zinc-300 border-t border-zinc-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1.5 max-w-md">
-            <div className="flex items-center gap-2.5 text-white font-semibold">
+            <div className="flex items-center gap-2.5 text-zinc-50 font-semibold">
               {company.logoDataUrl ? (
                 <img
                   src={company.logoDataUrl}
                   alt={company.name}
                   referrerPolicy="no-referrer"
-                  className="h-6 w-6 rounded bg-white object-contain p-0.5 shrink-0"
+                  className="h-6 w-6 rounded bg-zinc-900 border border-[#D4AF37]/40 object-contain p-0.5 shrink-0"
                 />
               ) : (
-                <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-[#E5C158] shrink-0" />
               )}
               <span>{company.name}</span>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-zinc-400 leading-relaxed">
               {company.address} · {company.email}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center gap-6 text-xs text-zinc-400">
             {navLinks.map((nav) => (
               <a
                 key={nav.href}
                 href={nav.href}
-                className="hover:text-white transition-colors whitespace-nowrap"
+                className="hover:text-[#E5C158] transition-colors whitespace-nowrap"
               >
                 {nav.label}
               </a>
@@ -953,14 +961,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <button
               type="button"
               onClick={() => setLoginModalOpen(true)}
-              className="text-white font-medium hover:underline whitespace-nowrap"
+              className="text-[#E5C158] font-semibold hover:underline whitespace-nowrap"
             >
               Masuk Portal
             </button>
           </div>
         </div>
-        <div className="border-t border-slate-800">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
+        <div className="border-t border-zinc-900">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 text-xs text-zinc-500 flex flex-wrap items-center justify-between gap-2">
             <span>
               &copy; {new Date().getFullYear()} {company.name}. Hak cipta dilindungi undang-undang.
             </span>
@@ -972,23 +980,23 @@ export const LoginView: React.FC<LoginViewProps> = ({
       {/* Portal Login Modal */}
       {loginModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="portal-login-title"
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between gap-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#D4AF37]/40 bg-zinc-900 shadow-2xl overflow-hidden text-zinc-100">
+            <div className="px-6 py-5 border-b border-zinc-800 flex items-center justify-between gap-4">
               <div>
-                <h2 id="portal-login-title" className="text-lg font-bold text-slate-900">
+                <h2 id="portal-login-title" className="text-lg font-bold text-zinc-50">
                   Masuk ke Portal Perusahaan
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">{company.name}</p>
+                <p className="text-xs text-[#E5C158] mt-0.5">{company.name}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setLoginModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
                 aria-label="Tutup form masuk"
               >
                 <X className="w-4 h-4" />
@@ -997,19 +1005,19 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
             <div className="p-6">
               {errorMsg && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-700" />
+                <div className="mb-4 rounded-lg border border-red-700/60 bg-red-950/60 p-3 text-xs text-red-200 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                     Username atau Email Perusahaan
                   </label>
                   <div className="relative">
-                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <UserIcon className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={identifier}
@@ -1018,17 +1026,17 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       autoComplete="username"
                       autoFocus
                       required
-                      className="w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 pl-9 pr-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                     Kata Sandi
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
@@ -1036,12 +1044,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       placeholder="Masukkan kata sandi"
                       autoComplete="current-password"
                       required
-                      className="w-full rounded-lg border border-slate-300 bg-white pl-9 pr-10 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 pl-9 pr-10 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-[#E5C158]"
                       aria-label="Tampilkan kata sandi"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1052,7 +1060,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50 transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-[#E5C158] disabled:opacity-50 transition-colors"
                 >
                   <LogIn className="w-4 h-4" />
                   <span>{submitting ? 'Memverifikasi Sesi...' : 'Masuk ke Dashboard'}</span>
@@ -1060,7 +1068,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </form>
 
               {onOpenVerify && (
-                <div className="mt-5 pt-4 border-t border-slate-200 flex items-center justify-between gap-2 text-xs text-slate-500">
+                <div className="mt-5 pt-4 border-t border-zinc-800 flex items-center justify-between gap-2 text-xs text-zinc-400">
                   <span>Perlu cek surat resmi?</span>
                   <button
                     type="button"
@@ -1068,7 +1076,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       setLoginModalOpen(false);
                       onOpenVerify('');
                     }}
-                    className="inline-flex items-center gap-1.5 font-medium text-blue-700 hover:underline whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 font-medium text-[#E5C158] hover:underline whitespace-nowrap"
                   >
                     <QrCode className="w-3.5 h-3.5" />
                     <span>Verifikasi Barcode</span>
