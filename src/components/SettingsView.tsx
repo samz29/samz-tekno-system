@@ -9,6 +9,7 @@ import {
   Globe,
   Image as ImageIcon,
   Mail,
+  MessageCircle,
   Plus,
   ShieldCheck,
   Trash2,
@@ -19,6 +20,7 @@ import type {
   CompanyProfileCaseStudy,
   CompanyProfilePillar,
 } from '../types';
+import { buildWhatsAppUrl, normalizeWhatsAppNumber } from '../lib/whatsapp';
 import { LoginView } from './LoginView';
 
 interface SettingsViewProps {
@@ -896,8 +898,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-600">
-              Ingin mengatur tampilan halaman depan (Hero, foto, portofolio, layanan, dan tombol)
-              sebelum login?
+              Ingin mengatur tampilan halaman depan (Hero, foto, portofolio, layanan, dan balon chat
+              WhatsApp) sebelum login?
             </p>
             <button
               type="button"
@@ -1367,6 +1369,129 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
+          </div>
+
+          {/* 6. Balon Chat WhatsApp (Tombol Mengambang) */}
+          <div className="border-t border-slate-200 pt-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <span>6. Balon Chat WhatsApp (Tombol Mengambang Halaman Depan)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Menampilkan balon chat WhatsApp di pojok kanan bawah halaman company profile agar
+                  calon klien bisa langsung mengirim pesan.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={company.whatsappEnabled !== false}
+                  onChange={(e) =>
+                    setCompany((prev) => ({ ...prev, whatsappEnabled: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
+                <span className="text-xs font-semibold text-slate-800">
+                  Aktifkan Balon WhatsApp
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Nomor WhatsApp Tujuan (Format 628xxx atau 08xxx)
+                </label>
+                <input
+                  type="text"
+                  value={company.whatsappNumber ?? '+62 811 8842 2019'}
+                  onChange={(e) => setCompany({ ...company, whatsappNumber: e.target.value })}
+                  placeholder="Contoh: 081234567890 atau +62 812 3456 7890"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Link aktif:{' '}
+                  <span className="font-mono text-slate-700">
+                    {normalizeWhatsAppNumber(company.whatsappNumber || company.phone)
+                      ? `https://wa.me/${normalizeWhatsAppNumber(
+                          company.whatsappNumber || company.phone
+                        )}`
+                      : 'Nomor belum valid (jika dikosongkan, otomatis memakai Telepon Perusahaan)'}
+                  </span>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Label Tombol &amp; Header Chat
+                </label>
+                <input
+                  type="text"
+                  value={company.whatsappLabel ?? 'Konsultasi WhatsApp'}
+                  onChange={(e) => setCompany({ ...company, whatsappLabel: e.target.value })}
+                  placeholder="Konsultasi WhatsApp"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Pesan Sambutan di Balon Chat
+                </label>
+                <textarea
+                  rows={2}
+                  value={
+                    company.whatsappGreeting ??
+                    'Halo! Ada yang bisa kami bantu terkait layanan korporasi, penawaran proyek, atau verifikasi dokumen?'
+                  }
+                  onChange={(e) => setCompany({ ...company, whatsappGreeting: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Template Pesan Awal Pengunjung
+                </label>
+                <textarea
+                  rows={2}
+                  value={
+                    company.whatsappDefaultMessage ??
+                    'Halo tim, saya ingin berkonsultasi mengenai layanan dan penawaran perusahaan.'
+                  }
+                  onChange={(e) =>
+                    setCompany({ ...company, whatsappDefaultMessage: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+
+            {company.whatsappEnabled !== false &&
+              normalizeWhatsAppNumber(company.whatsappNumber || company.phone) && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-900">
+                  <span>
+                    Balon WhatsApp aktif dan mengarah ke{' '}
+                    <strong className="font-mono">
+                      +{normalizeWhatsAppNumber(company.whatsappNumber || company.phone)}
+                    </strong>
+                    .
+                  </span>
+                  <a
+                    href={buildWhatsAppUrl(
+                      company.whatsappNumber || company.phone,
+                      company.whatsappDefaultMessage
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-emerald-800 hover:underline whitespace-nowrap"
+                  >
+                    Uji Link WhatsApp &rarr;
+                  </a>
+                </div>
+              )}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">

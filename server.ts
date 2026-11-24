@@ -979,6 +979,15 @@ async function startServer() {
         showVerifySection: rawCompany?.showVerifySection !== false,
         showContactSection: rawCompany?.showContactSection !== false,
         footerNote: rawCompany?.footerNote || 'Portal Internal & Verifikasi Dokumen Resmi',
+        whatsappEnabled: rawCompany?.whatsappEnabled !== false,
+        whatsappNumber: rawCompany?.whatsappNumber ?? '+62 811 8842 2019',
+        whatsappLabel: rawCompany?.whatsappLabel || 'Konsultasi WhatsApp',
+        whatsappGreeting:
+          rawCompany?.whatsappGreeting ||
+          'Halo! Ada yang bisa kami bantu terkait layanan korporasi, penawaran proyek, atau verifikasi dokumen?',
+        whatsappDefaultMessage:
+          rawCompany?.whatsappDefaultMessage ||
+          'Halo tim, saya ingin berkonsultasi mengenai layanan dan penawaran perusahaan.',
       },
       services: activeProducts,
       highlights: {
@@ -2896,6 +2905,32 @@ async function startServer() {
         body.footerNote,
         existing.footerNote || 'Portal Internal & Verifikasi Dokumen Resmi',
         160
+      ),
+      whatsappEnabled:
+        typeof body.whatsappEnabled === 'boolean'
+          ? body.whatsappEnabled
+          : existing.whatsappEnabled !== false,
+      whatsappNumber: pickText(
+        body.whatsappNumber,
+        existing.whatsappNumber ?? '+62 811 8842 2019',
+        40
+      ),
+      whatsappLabel: pickText(
+        body.whatsappLabel,
+        existing.whatsappLabel || 'Konsultasi WhatsApp',
+        80
+      ),
+      whatsappGreeting: pickText(
+        body.whatsappGreeting,
+        existing.whatsappGreeting ||
+          'Halo! Ada yang bisa kami bantu terkait layanan korporasi, penawaran proyek, atau verifikasi dokumen?',
+        500
+      ),
+      whatsappDefaultMessage: pickText(
+        body.whatsappDefaultMessage,
+        existing.whatsappDefaultMessage ||
+          'Halo tim, saya ingin berkonsultasi mengenai layanan dan penawaran perusahaan.',
+        400
       ),
     };
 

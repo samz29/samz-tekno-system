@@ -543,6 +543,11 @@ export interface CompanyInternalConfig {
   showVerifySection?: boolean;
   showContactSection?: boolean;
   footerNote?: string;
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
+  whatsappLabel?: string;
+  whatsappGreeting?: string;
+  whatsappDefaultMessage?: string;
 }
 
 export interface VapidConfig {
@@ -669,6 +674,13 @@ export function ensureInitialData(): void {
       showVerifySection: true,
       showContactSection: true,
       footerNote: 'Portal Internal & Verifikasi Dokumen Resmi',
+      whatsappEnabled: true,
+      whatsappNumber: '+62 811 8842 2019',
+      whatsappLabel: 'Konsultasi WhatsApp',
+      whatsappGreeting:
+        'Halo! Ada yang bisa kami bantu terkait layanan korporasi, penawaran proyek, atau verifikasi dokumen?',
+      whatsappDefaultMessage:
+        'Halo tim, saya ingin berkonsultasi mengenai layanan dan penawaran perusahaan.',
     });
   }
 

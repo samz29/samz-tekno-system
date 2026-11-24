@@ -20,9 +20,21 @@ import {
 } from 'lucide-react';
 import type { CompanyProfile, PublicCompanyProfilePayload } from '../types';
 import { formatIdr } from '../lib/formatters';
+import { buildWhatsAppUrl, normalizeWhatsAppNumber } from '../lib/whatsapp';
 import heroCorporateImg from '../assets/images/hero_corporate_hq_1795443793076.jpg';
 import operationsTeamImg from '../assets/images/bento_operations_team_1795443793200.jpg';
 import datacenterDeliveryImg from '../assets/images/portfolio_datacenter_delivery_1795443793245.jpg';
+
+const WhatsAppGlyph: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    className={className}
+  >
+    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.08c-.24.68-1.42 1.3-1.97 1.38-.51.07-1.15.1-1.85-.12-.43-.14-.98-.32-1.69-.63-2.97-1.28-4.91-4.29-5.06-4.49-.15-.2-1.21-1.61-1.21-3.07 0-1.46.76-2.18 1.03-2.48.27-.3.59-.38.79-.38.2 0 .39.01.56.01.18 0 .42-.07.66.5.24.58.82 2 .89 2.15.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.18-.31.39-.45.52-.15.15-.3.31-.13.61.18.3.79 1.3 1.7 2.11 1.17 1.04 2.15 1.37 2.45 1.52.3.15.47.12.65-.07.18-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.73.82 2.02.97.3.15.49.22.56.34.07.12.07.7-.17 1.38z" />
+  </svg>
+);
 
 interface LoginViewProps {
   onLogin: (identifier: string, password: string) => Promise<{ ok: boolean; message?: string }>;
@@ -85,6 +97,13 @@ const DEFAULT_PROFILE: PublicCompanyProfilePayload = {
     showVerifySection: true,
     showContactSection: true,
     footerNote: 'Portal Internal & Verifikasi Dokumen Resmi',
+    whatsappEnabled: true,
+    whatsappNumber: '+62 811 8842 2019',
+    whatsappLabel: 'Konsultasi WhatsApp',
+    whatsappGreeting:
+      'Halo! Ada yang bisa kami bantu terkait layanan korporasi, penawaran proyek, atau verifikasi dokumen?',
+    whatsappDefaultMessage:
+      'Halo tim, saya ingin berkonsultasi mengenai layanan dan penawaran perusahaan.',
   },
   services: [
     {
@@ -148,6 +167,11 @@ function mergeCompanyWithDefaults(
     showVerifySection: raw?.showVerifySection !== false,
     showContactSection: raw?.showContactSection !== false,
     footerNote: raw?.footerNote || def.footerNote,
+    whatsappEnabled: raw?.whatsappEnabled !== false,
+    whatsappNumber: raw?.whatsappNumber ?? def.whatsappNumber,
+    whatsappLabel: raw?.whatsappLabel || def.whatsappLabel,
+    whatsappGreeting: raw?.whatsappGreeting || def.whatsappGreeting,
+    whatsappDefaultMessage: raw?.whatsappDefaultMessage || def.whatsappDefaultMessage,
   };
 }
 
@@ -190,12 +214,22 @@ export const LoginView: React.FC<LoginViewProps> = ({
     message: string;
   } | null>(null);
 
+  // WhatsApp Floating Chat Balloon state
+  const [waOpen, setWaOpen] = useState(false);
+  const [waDraftMessage, setWaDraftMessage] = useState(
+    () =>
+      previewCompany?.whatsappDefaultMessage ||
+      DEFAULT_PROFILE.company.whatsappDefaultMessage
+  );
+
   useEffect(() => {
     if (previewCompany) {
+      const merged = mergeCompanyWithDefaults(previewCompany);
       setProfile((prev) => ({
         ...prev,
-        company: mergeCompanyWithDefaults(previewCompany),
+        company: merged,
       }));
+      setWaDraftMessage(merged.whatsappDefaultMessage);
       setHeroImgFailed(false);
       setOpsImgFailed(false);
       setDeliveryImgFailed(false);
@@ -207,14 +241,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!active || !data?.ok || !data?.company) return;
+        const merged = mergeCompanyWithDefaults(data.company);
         setProfile({
-          company: mergeCompanyWithDefaults(data.company),
+          company: merged,
           services:
             Array.isArray(data.services) && data.services.length > 0
               ? data.services
               : DEFAULT_PROFILE.services,
           highlights: data.highlights || DEFAULT_PROFILE.highlights,
         });
+        setWaDraftMessage(merged.whatsappDefaultMessage);
       })
       .catch(() => {
         // Keep defaults when offline
@@ -225,15 +261,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
   }, [previewCompany]);
 
   useEffect(() => {
-    if (!loginModalOpen) return;
+    if (!loginModalOpen && !waOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setLoginModalOpen(false);
+        setWaOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [loginModalOpen]);
+  }, [loginModalOpen, waOpen]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -350,6 +387,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const heroSrc = company.heroImageDataUrl || heroCorporateImg;
   const opsSrc = company.aboutImageDataUrl || operationsTeamImg;
   const deliverySrc = company.portfolioImageDataUrl || datacenterDeliveryImg;
+  const waDigits = normalizeWhatsAppNumber(company.whatsappNumber || company.phone);
+  const showWhatsAppBalloon = company.whatsappEnabled && waDigits.length >= 8;
+  const waDirectUrl = buildWhatsAppUrl(
+    company.whatsappNumber || company.phone,
+    waDraftMessage || company.whatsappDefaultMessage
+  );
 
   const navLinks = [
     { href: '#tentang', label: 'Tentang', visible: true },
@@ -789,6 +832,22 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       <Mail className="w-4 h-4 text-[#E5C158] shrink-0" />
                       <span>{company.email}</span>
                     </div>
+                    {showWhatsAppBalloon && (
+                      <div className="flex items-center gap-3 pt-1">
+                        <WhatsAppGlyph className="w-4 h-4 text-[#25D366] shrink-0" />
+                        <a
+                          href={buildWhatsAppUrl(
+                            company.whatsappNumber || company.phone,
+                            company.whatsappDefaultMessage
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#E5C158] hover:underline font-medium tabular-nums"
+                        >
+                          WhatsApp: {company.whatsappNumber || company.phone}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1085,6 +1144,108 @@ export const LoginView: React.FC<LoginViewProps> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+      {/* Floating WhatsApp Chat Balloon */}
+      {showWhatsAppBalloon && (
+        <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+          {waOpen && (
+            <div
+              role="dialog"
+              aria-label="Chat WhatsApp Perusahaan"
+              className="w-[310px] sm:w-[345px] rounded-2xl border border-[#D4AF37]/40 bg-zinc-900 text-zinc-100 shadow-2xl overflow-hidden"
+            >
+              <div className="px-4 py-3.5 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-[#25D366] text-zinc-950 flex items-center justify-center shrink-0">
+                    <WhatsAppGlyph className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-zinc-50 truncate">
+                      {company.whatsappLabel || 'Konsultasi WhatsApp'}
+                    </div>
+                    <div className="text-[11px] text-[#E5C158] truncate">
+                      {company.name} · Respon Cepat
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWaOpen(false)}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 shrink-0"
+                  aria-label="Tutup jendela chat WhatsApp"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-3 bg-[#0D0D10]">
+                <div className="rounded-xl rounded-tl-xs border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-zinc-200 leading-relaxed">
+                  {company.whatsappGreeting}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Minta Penawaran Layanan',
+                    'Jadwalkan Konsultasi',
+                    'Cek Dokumen BAST / SK',
+                  ].map((topic) => (
+                    <button
+                      key={topic}
+                      type="button"
+                      onClick={() =>
+                        setWaDraftMessage(
+                          `Halo tim ${company.name}, saya ingin ${topic.toLowerCase()}.`
+                        )
+                      }
+                      className="rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-[#D4AF37]/60 hover:text-[#E5C158] transition-colors whitespace-nowrap"
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label htmlFor="wa-draft-input" className="sr-only">
+                    Pesan WhatsApp
+                  </label>
+                  <textarea
+                    id="wa-draft-input"
+                    rows={3}
+                    value={waDraftMessage}
+                    onChange={(e) => setWaDraftMessage(e.target.value)}
+                    placeholder="Tulis pertanyaan Anda di sini..."
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-[#D4AF37] focus:outline-none"
+                  />
+                </div>
+
+                <a
+                  href={waDirectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-xs font-bold text-zinc-950 hover:bg-[#2be06f] transition-colors whitespace-nowrap"
+                >
+                  <WhatsAppGlyph className="w-4 h-4" />
+                  <span>Mulai Chat di WhatsApp</span>
+                </a>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setWaOpen((prev) => !prev)}
+            aria-expanded={waOpen}
+            aria-label={company.whatsappLabel || 'Buka Chat WhatsApp'}
+            className="inline-flex items-center gap-2.5 rounded-full border border-[#D4AF37]/60 bg-zinc-950 px-4 py-3 text-xs font-semibold text-zinc-50 shadow-2xl hover:border-[#E5C158] hover:bg-zinc-900 transition-transform duration-150 active:scale-95"
+          >
+            <span className="w-7 h-7 rounded-full bg-[#25D366] text-zinc-950 flex items-center justify-center shrink-0">
+              {waOpen ? <X className="w-4 h-4" /> : <WhatsAppGlyph className="w-4 h-4" />}
+            </span>
+            <span className="hidden sm:inline whitespace-nowrap pr-1 text-[#E5C158]">
+              {company.whatsappLabel || 'Chat WhatsApp'}
+            </span>
+          </button>
         </div>
       )}
     </div>

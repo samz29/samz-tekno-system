@@ -167,6 +167,11 @@ export interface CompanyProfile {
   showVerifySection?: boolean;
   showContactSection?: boolean;
   footerNote?: string;
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
+  whatsappLabel?: string;
+  whatsappGreeting?: string;
+  whatsappDefaultMessage?: string;
 }
 
 export interface PublicCompanyProfilePayload {
@@ -194,6 +199,11 @@ export interface PublicCompanyProfilePayload {
     showVerifySection: boolean;
     showContactSection: boolean;
     footerNote: string;
+    whatsappEnabled: boolean;
+    whatsappNumber: string;
+    whatsappLabel: string;
+    whatsappGreeting: string;
+    whatsappDefaultMessage: string;
   };
   services: Array<{
     id: string;
